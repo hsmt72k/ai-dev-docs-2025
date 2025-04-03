@@ -1,0 +1,253 @@
+---
+title: 16. Ex.04a RAG Chat With JSON Object
+description: エクササイズ.04a JSONオブジェクトを使ったチャット
+icon: Rocket
+---
+
+新しいエンドポイントとして、`/api/chat-with-personality`、個性付属チャットルート API （Chat With Personality Route API）を作成する。
+
+```bash title="Terminal"
+mkdir ./src/app/api/chat-with-json
+touch ./src/app/api/chat-with-json/route.ts
+```
+
+```diff title="src/app/api/chat-with-json/route.ts"
+import { PromptTemplate } from '@langchain/core/prompts';
+import { RunnableSequence } from '@langchain/core/runnables';
+import { ChatOpenAI } from '@langchain/openai';
+import { Message as VercelChatMessage, LangChainAdapter } from 'ai';
+import { CharacterTextSplitter } from 'langchain/text_splitter';
+import { formatDocumentsAsString } from 'langchain/util/document';
+
+export const runtime = 'edge';
+
+const formatMessage = (message: VercelChatMessage) => {
+  return `${message.role}: ${message.content}`;
+};
+
+const TEMPLATE = `次のデータベースに基づいてユーザの質問に答えてください。もしその答えがデータベースに含まれていない場合は、情報がないことを超時期に返答してください。
+==============================
+Context: {context}
+==============================
+Current conversation: {chat_history}
+
+user: {question}
+assistant:`;
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json();
+    const messages = body.messages ?? [];
+
+    const formattedPreviousMessages = messages
+      .slice(0, -1)
+      .map(formatMessage);
+
+    const currentMessageContent = messages[messages.length - 1].content;
+
+    const textSplitter = new CharacterTextSplitter();
+    const docs = await textSplitter.createDocuments([
+      JSON.stringify({
+        city: '名古屋',
+        slug: 'nagoya',
+        han: '尾張',
+        mayor: '広沢一郎',
+        area_code: '052',
+        population: 100,
+        population_rank: 34,
+      }),
+    ]);
+
+    const prompt = PromptTemplate.fromTemplate(TEMPLATE);
+
+    const model = new ChatOpenAI({
+      apiKey: process.env.OPENAI_API_KEY!,
+      model: 'gpt-4o',
+      temperature: 0.8,
+    });
+
+    const chain = RunnableSequence.from([
+      {
+        question: (input) => input.question,
+        chat_history: (input) => input.chat_history,
+        context: () => formatDocumentsAsString(docs),
+      },
+      prompt,
+      model,
+    ]);
+
+    const stream = await chain.stream({
+      chat_history: formattedPreviousMessages.join('\n'),
+      question: currentMessageContent,
+    });
+
+    return LangChainAdapter.toDataStreamResponse(stream);
+  } catch (error) {
+    if (error instanceof Error) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    return new Response(
+      JSON.stringify({ error: 'Unknown error occurred' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+}
+```
+
+Chat コンポーネントの useChat フックで、呼び出す API のエンドポイントを、作成した `/api/chat-with-json` に変更する。
+
+```diff title="src/components/chat.tsx"
+ 'use client';
+
+ import { useChat } from '@ai-sdk/react';
+ import { SendHorizontalIcon } from 'lucide-react';
+ import { useEffect, useRef } from 'react';
+ import { toast } from 'sonner';
+
+ import { cn } from '@/lib/utils';
+
+ import { Button } from './ui/button';
+ import { Input } from './ui/input';
+
+ export const Chat = () => {
+   const { messages, input, handleInputChange, handleSubmit } = useChat({
+-    api: 'api/chat-with-personality',
++    api: 'api/chat-with-json',
+     onError: (e) => {
+       toast.error('エラーが発生しました');
+       console.log(e);
+     },
+   });
+   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+   useEffect(() => {
+     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+   }, [messages]);
+
+   return (
+     <div className="mt-2 flex flex-col w-full max-w-2xl h-full mx-auto gap-2 bg-zinc-900 overflow-hidden">
+       <div className="flex flex-col flex-1 overflow-y-auto mb-18">
+         {messages.map((message) => (
+           <div
+             key={message.id}
+             className={cn(
+               'whitespace-pre-wrap px-5 py-3 rounded-lg mb-2 mx-8 flex gap-2',
+               message.role === 'user'
+                 ? 'bg-zinc-800 text-neutral-500 self-start'
+                 : 'text-gray-400 self-end',
+             )}
+           >
+             {message.role === 'assistant' && (
+               <div className="h-8 px-3 py-2 font-bold text-xs rounded-lg bg-[#ff6467]/20 text-zinc-500 w-auto whitespace-nowrap">
+                 回答
+               </div>
+             )}
+             {message.parts.map((part, i) => {
+               switch (part.type) {
+                 case 'text':
+                   return <div key={`${message.id}-${i}`}>{part.text}</div>;
+               }
+             })}
+           </div>
+         ))}
+         <div ref={messagesEndRef} />
+       </div>
+
+       <form
+         onSubmit={handleSubmit}
+         className="fixed bottom-2 w-full max-w-2xl p-4 bg-zinc-900"
+       >
+         <div className="flex w-full gap-4">
+           <Input
+             className="bg-zinc-800 w-full p-2 h-10 border border-zinc-700 rounded shadow-xl text-white placeholder:text-neutral-400"
+             value={input}
+             placeholder="質問をしてください..."
+             onChange={handleInputChange}
+           />
+
+           <Button
+             type="submit"
+             className="w-18 h-10 bg-[#00bc7d] text-white p-2 rounded hover:bg-emerald-900 hover:cursor-pointer hover:text-white/40"
+           >
+             <SendHorizontalIcon />
+           </Button>
+         </div>
+       </form>
+     </div>
+   );
+ };
+```
+
+JSON オブジェクトをデータベースとして読み込んでいる、Chat With JSON ルート API の動作確認をしてみる。
+
+JSON オブジェクトの内容のままを回答していることが分かる。
+
+JSON オブジェクト内のデータだけでなく、ChatGPT は広範な情報を持っているが、テンプレートの指示通り読み込んだ情報以外の内容については答えないようにしている。
+
+<img
+  src="/hands-on/01-basic-rag-app/16_ex04a_chat_with_json_object/test_chat_with_json_object_route_api.webp"
+  alt=""
+/>
+
+```txt title="動作結果例：質問（１）"
+市長は誰ですか？
+```
+
+```bash title="動作結果例：回答（１）"
+名古屋市の市長は広沢一郎です。
+```
+
+```txt title="動作結果例：質問（２）"
+広島市の市長の名前を聞いてます
+```
+
+```bash title="動作結果例：回答（２）"
+申し訳ありませんが、広島市の市長についての情報はデータベースに含まれていません。
+```
+
+```txt title="動作結果例：質問（３）"
+失礼しました
+```
+
+```bash title="動作結果例：回答（３）"
+大丈夫です。他に何かお手伝いできることがありましたら教えてください。
+```
+
+```txt title="動作結果例：質問（４）"
+名古屋の人口は何人ですか？
+```
+
+```bash title="動作結果例：回答（４）"
+名古屋の人口は100人です。
+```
+
+```txt title="動作結果例：質問（５）"
+広島市の人口はそんなに少ないのですか？
+```
+
+```bash title="動作結果例：回答（５）"
+申し訳ありませんが、広島市の人口についての情報はデータベースに含まれていません。
+```
+
+```txt title="動作結果例：質問（６）"
+名古屋の人口はそんなに少ないのですか？
+```
+
+```bash title="動作結果例：回答（６）"
+名古屋の人口が100人というのは、実際のデータとは異なる可能性があります。
+
+データベースに基づく情報ではありますが、実際の名古屋市の人口はもっと多いです。
+データベースの情報が正確でない場合もありますのでご注意ください。
+```
+
+コミットを行う。
+
+```shell title="Terminal"
+git add .
+git commit -m '16. Ex.04a RAG Chat With JSON Object'
+git push
+```
