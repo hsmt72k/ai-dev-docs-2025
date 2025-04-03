@@ -1,0 +1,17 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+
+@source '../node_modules/fumadocs-ui/dist/**/*.js';
+
+:root {
+  --font-noto-sans-jp: 'Noto Sans JP', sans-serif;
+}
+
+body {
+  font-family: var(--font-noto-sans-jp), sans-serif;
+}
+
+.font-noto-sans-jp {
+  font-family: var(--font-noto-sans-jp), sans-serif;
+}

@@ -1,0 +1,254 @@
+---
+title: 03. Setup NVM
+description: NVM のセットアップ
+icon: Rocket
+---
+
+nvm（Node.js Version Manager） for Windowsで、複数バージョンの Node.js を使用できるようにしていく。
+
+### NVM の必要性
+
+GitHub でのトレンドを見ても、アプリ開発において、Node.js を使用する場面が増えてきている。
+
+![](https://upload.wikimedia.org/wikipedia/commons/d/d9/Node.js_logo.svg)
+
+だが、Node.js はバージョンアップのサイクルが早い上、バージョンによる環境依存が強いことが特徴である。
+
+そのため、プロジェクトが増えると、複数バージョンの Node.js が必要になってくる。
+
+ああ、めんどくさい。
+
+ところが、NVM を使用すれば、複数バージョンの Node.js のインストール、切り替えなどが簡単に管理できるようになる。
+
+![](https://raw.githubusercontent.com/nvm-sh/logos/HEAD/nvm-logo-color.svg)
+
+### Winget によるインストール
+
+使用している Windows 端末に Winget がインストールされていば、Winget から NVM をコマンド１つでインストールできる。
+
+```bash title="nvm をインストール"
+winget install -e --id CoreyButler.NVMforWindows
+```
+
+Winget が分からない方は、ChatGPT に尋ねて、環境を確認、構築してみてほしい。
+
+Winget を使いたくない場合は、以下から `Source code(zip)` ファイルをダウンロードしてインストールすることもできる。
+
+NVM Releases<br />
+https://github.com/nvm-sh/nvm/releases
+
+次のコマンドを Windows Terminal（Git Bash）で実行して、NVM がインストールされた場所を確認する。
+
+```bash title="NVM のインストール場所を確認"
+which nvm
+```
+
+```bash title="実行結果例"
+/c/Users/{ユーザ名}/AppData/Roaming/nvm/nvm
+```
+
+Windows での Terminal の利用方法や Terminal で GitBash を適用する方法が分からない場合も、
+ChatGPT に尋ねて、環境を確認、構築してみてほしい。
+
+GitBash は Winget で Git をインストールすることで簡単に入手することができる。
+
+システム環境変数を確認すると、以下の2つの環境変数が設定されている。
+
+|変数 |値 |
+|:-- |:-- |
+|NVM_HOME	|C:\Users\ユーザ名\AppData\Roaming\nvm |
+|NVM_SYMLINK	|C:\Program Files\nodejs |
+
+Windows のシステム環境変数の見方や編集方法が分からない場合も、ChatGPT で調べてほしい。
+
+環境変数が上記の内容で間違いなければ、
+環境変数を反映させるために、Windows Terminal を開きなおす。
+
+以下のコマンドで、 インストールされている Node.js のバージョンと、現在適用されている Node.js のバージョンを確認できる。
+
+```bash title="インストール済みのバージョンと、適用されているバージョンを確認"
+nvm list
+```
+
+```bash title="実行結果例（NVM をインストールしたばかりで、まだ Node.js を1つもインストールしていない場合）"
+No installations recognized.
+```
+
+以下のコマンドで、 インストール可能な Node.js のバージョン一覧が表示される。
+
+```bash title="インストール可能な Node.js バージョン一覧を表示"
+nvm list available
+```
+
+```bash title="実行結果例（2025/04/02 時点）"
+|   CURRENT    |     LTS      |  OLD STABLE  | OLD UNSTABLE |
+|--------------|--------------|--------------|--------------|
+|   23.11.0    |   22.14.0    |   0.12.18    |   0.11.16    |
+|   23.10.0    |   22.13.1    |   0.12.17    |   0.11.15    |
+|    23.9.0    |   22.13.0    |   0.12.16    |   0.11.14    |
+|    23.8.0    |   22.12.0    |   0.12.15    |   0.11.13    |
+|    23.7.0    |   22.11.0    |   0.12.14    |   0.11.12    |
+|    23.6.1    |   20.19.0    |   0.12.13    |   0.11.11    |
+|    23.6.0    |   20.18.3    |   0.12.12    |   0.11.10    |
+|    23.5.0    |   20.18.2    |   0.12.11    |    0.11.9    |
+|    23.4.0    |   20.18.1    |   0.12.10    |    0.11.8    |
+|    23.3.0    |   20.18.0    |    0.12.9    |    0.11.7    |
+|    23.2.0    |   20.17.0    |    0.12.8    |    0.11.6    |
+|    23.1.0    |   20.16.0    |    0.12.7    |    0.11.5    |
+|    23.0.0    |   20.15.1    |    0.12.6    |    0.11.4    |
+|   22.10.0    |   20.15.0    |    0.12.5    |    0.11.3    |
+|    22.9.0    |   20.14.0    |    0.12.4    |    0.11.2    |
+|    22.8.0    |   20.13.1    |    0.12.3    |    0.11.1    |
+|    22.7.0    |   20.13.0    |    0.12.2    |    0.11.0    |
+|    22.6.0    |   20.12.2    |    0.12.1    |    0.9.12    |
+|    22.5.1    |   20.12.1    |    0.12.0    |    0.9.11    |
+|    22.5.0    |   20.12.0    |   0.10.48    |    0.9.10    |
+```
+
+### 最新の Node.js バージョンをインストール
+
+以下のコマンドで最新バージョンをインストールすることができる。
+
+```bash title="最新の Node.js バージョンをインストール"
+nvm install latest
+```
+
+nvm list コマンドでインストールされているバージョンを確認する。
+
+```bash title="インストールされている Node.js のバージョンを確認"
+nvm list
+```
+
+```bash title="実行結果例（最新バージョンをインストール後）"
+    23.11.0
+```
+
+Node.js のバージョンを確認すると、まだ Node.js を適用していないので、コマンドがエラーになる。
+
+```bash title="Node.js のバージョンを確認"
+node -v
+```
+
+```bash title="実行結果例"
+bash: node: command not found
+```
+
+以下のコマンドで、 アクティブにする Node.js のバージョンを指定することができる。
+
+```bash title="アクティブにする Node.js のバージョンを指定"
+nvm use アクティブにしたいNode.jsのバージョン番号
+```
+
+```bash title="指定例"
+nvm use 23.11.0
+```
+
+```bash title="実行結果例"
+Now using node v23.11.0 (64-bit)
+```
+
+再度、nvm list コマンドを実行してみると、指定したバージョンがアクティブになっていることが分かる。
+
+```bash title="再度、インストールされている Node.js のバージョンを確認"
+nvm list
+```
+
+```bash title="nvm use 20.5.1 実行後の nvm list コマンド実行結果例"
+  * 23.11.0 (Currently using 64-bit executable)
+```
+
+### 安定版をインストール
+
+以下のコマンドで安定版をインストールすることができる。
+
+```bash title="安定版の Node.js をインストール"
+nvm install lts
+```
+
+```bash title="実行結果例"
+Downloading node.js version 22.14.0 (64-bit)...
+Extracting node and npm...
+Complete
+npm v10.2.3 installed successfully.
+
+
+Installation complete. If you want to use this version, type
+
+nvm use 22.14.0
+```
+
+再度、インストールされている Node.js のバージョンを確認してみる。
+
+```bash title="再度、インストールされている Node.js のバージョンを確認"
+nvm list
+```
+
+実行結果例では Ver. 22.14.0 がインストールできているが、 nvm list で確認すると、Ver. 22.14.0 がアクティブになっていないことが分かる。
+
+```bash title="安定版（LTS）をインストール後の nvm list 実行結果例"
+  * 23.11.0 (Currently using 64-bit executable)
+    22.14.0
+```
+
+`nvm use` コマンドで Ver. 20.5.1 から Ver. 18.17.1 にバージョンを切り替えてみる。
+
+```bash title="Ver. 22.14.0 にバージョンを切り替え"
+nvm use 22.14.0
+```
+
+切替後、`nvm list` を実行すると、想定通り Ver. 22.14.0 が有効になっていることが分かる。
+
+```bash title="Ver. 22.14.0 に切替後の nvm list コマンド実行結果例"
+    23.11.0
+  * 22.14.0 (Currently using 64-bit executable)
+```
+
+以下のコマンドで、 Node.js のバージョンを確認してみると、NVM で有効にしたバージョンになっていることも分かる。
+
+```bash title="Node.js のバージョンを確認"
+node -v
+```
+
+```bash title="実行結果例"
+v22.14.0
+```
+
+### バージョン番号を指定してインストール
+
+NVM では、バージョン番号を指定して、Node.js をインストールすることもできる。
+
+```bash title="バージョン番号を指定して、NVM で Node.js をインストール"
+nvm install バージョン番号
+```
+
+Ver. 20.19.0 をインストールしてみる。
+
+```bash title="NVM で Ver. 20.19.0 の Node.js をインストール"
+nvm install 20.19.0
+```
+
+`nvm list` でインストールできたかを確認してみる。
+
+```bash title="nvm list の実行結果例"
+   23.11.0
+ * 22.14.0 (Currently using 64-bit executable)
+   20.19.0
+```
+
+### アンインストール
+
+インストールと同じように、バージョン番号を指定してアンインストールすることもできる。
+
+```bash title="バージョン番号を指定して、NVM で Node.js をアンインストール"
+nvm uninstall バージョン番号
+```
+
+### NVM のまとめ
+
+Windows システムに NVM をインストールする手順を紹介した。
+NVM を使うことで、Windows システムに複数の Node.js バージョンをインストールしておくことができ、
+インストールされてるバージョンの中からコマンドを使って指定バージョンに切り替えることができる。
+
+利用している Windows 端末に複数のアカウントがある場合は、
+NVM は特定のユーザに対してインストールされることに注意する必要がある。
+別のユーザで NVM を使用するには、そのアカウントからも個別にインストールする必要がある点に注意する。

@@ -1,0 +1,187 @@
+---
+title: 13. Ex.01 LangChain Chat
+description: エクササイズ.01 LangChain チャット
+icon: Rocket
+---
+
+新しいエンドポイントとして、`/api/langchain`、LangChain ルート API （LangChain Route API）を作成する。
+
+```bash title="Terminal"
+mkdir ./src/app/api/langchain
+touch ./src/app/api/langchain/route.ts
+```
+
+```diff title="src/app/api/langchain/route.ts"
+import { PromptTemplate } from '@langchain/core/prompts';
+import { ChatOpenAI } from '@langchain/openai';
+import { LangChainAdapter } from 'ai';
+
+export const runtime = 'edge';
+
+export async function POST(req: Request) {
+  try {
+    // リクエストボディからメッセージを取得
+    const { messages } = await req.json();
+    const userMessage = messages.at(-1).content;
+
+    if (!userMessage) {
+      return new Response(JSON.stringify({ error: 'No message provided' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    // LangChain でプロンプトテンプレートを作成
+    const prompt = PromptTemplate.fromTemplate('{message}');
+
+    // LangChain で OpenAI モデルを初期化
+    const model = new ChatOpenAI({
+      apiKey: process.env.OPENAI_API_KEY!,
+      model: 'gpt-4o',
+      temperature: 0.8,
+    });
+
+    // LangChain のプロンプトとモデルをパイプライン化
+    const chain = prompt.pipe(model);
+
+    // ストリームを生成
+    const stream = await chain.stream({ message: userMessage });
+
+    // 動作確認用：ここでログ出力してしまうと、ストリームを消費してしまうため、
+    // レスポンスとして返すストリームは空になってしまう
+    // for await (const chunk of stream) {
+    //   if (chunk?.content) {
+    //     console.log(chunk.content);
+    //   }
+    // }
+
+    // AI SDK のLangChainAdapter を使用してストリームレスポンスを返却
+    return LangChainAdapter.toDataStreamResponse(stream);
+  } catch (error) {
+    if (error instanceof Error) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    return new Response(
+      JSON.stringify({ error: 'Unknown error occurred' }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } },
+    );
+  }
+}
+```
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+<Callout title="AI SDK のバージョンアップによる破壊的変更に注意してください" type="warn">
+AI SDK のバージョンアップは頻繁に行なわれており、時として今まで使えた関数が使えなくなるなどの「破壊的変更」が AI SDK で実施されています。
+
+関数が存在せずコンパイルエラーなどになる場合は、ドキュメントの「移行ガイド」を確認して、
+過去に関数などの廃止、移行などが行なわれていないかを確認してください。
+</Callout>
+
+Migration Guides<br />
+https://sdk.vercel.ai/docs/migration-guides
+
+Chat コンポーネントの useChat フックで、呼び出す API のエンドポイントを、作成した `/api/langchain` に変更する。
+
+```diff title="src/components/chat.tsx"
+ 'use client';
+
+ import { useChat } from '@ai-sdk/react';
+ import { SendHorizontalIcon } from 'lucide-react';
+ import { useEffect, useRef } from 'react';
+ import { toast } from 'sonner';
+
+ import { cn } from '@/lib/utils';
+
+ import { Button } from './ui/button';
+ import { Input } from './ui/input';
+
+ export const Chat = () => {
+   const { messages, input, handleInputChange, handleSubmit } = useChat({
+-    api: 'api/chat',
++    api: 'api/langchain',
+     onError: (e) => {
+       toast.error('エラーが発生しました');
+       console.log(e);
+     },
+   });
+   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+   useEffect(() => {
+     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+   }, [messages]);
+
+   return (
+     <div className="mt-2 flex flex-col w-full max-w-2xl h-full mx-auto gap-2 bg-zinc-900 overflow-hidden">
+       <div className="flex flex-col flex-1 overflow-y-auto mb-18">
+         {messages.map((message) => (
+           <div
+             key={message.id}
+             className={cn(
+               'whitespace-pre-wrap px-5 py-3 rounded-lg mb-2 mx-8 flex gap-2',
+               message.role === 'user'
+                 ? 'bg-zinc-800 text-neutral-500 self-start'
+                 : 'text-gray-400 self-end',
+             )}
+           >
+             {message.role === 'assistant' && (
+               <div className="h-8 px-3 py-2 font-bold text-xs rounded-lg bg-[#ff6467]/20 text-zinc-500 w-auto whitespace-nowrap">
+                 回答
+               </div>
+             )}
+             {message.parts.map((part, i) => {
+               switch (part.type) {
+                 case 'text':
+                   return <div key={`${message.id}-${i}`}>{part.text}</div>;
+               }
+             })}
+           </div>
+         ))}
+         <div ref={messagesEndRef} />
+       </div>
+
+       <form
+         onSubmit={handleSubmit}
+         className="fixed bottom-2 w-full max-w-2xl p-4 bg-zinc-900"
+       >
+         <div className="flex w-full gap-4">
+           <Input
+             className="bg-zinc-800 w-full p-2 h-10 border border-zinc-700 rounded shadow-xl text-white placeholder:text-neutral-400"
+             value={input}
+             placeholder="質問をしてください..."
+             onChange={handleInputChange}
+           />
+
+           <Button
+             type="submit"
+             className="w-18 h-10 bg-[#00bc7d] text-white p-2 rounded hover:bg-emerald-900 hover:cursor-pointer hover:text-white/40"
+           >
+             <SendHorizontalIcon />
+           </Button>
+         </div>
+       </form>
+     </div>
+   );
+ };
+```
+
+LangChain ルート API の動作確認をしてみる。
+
+LangChain で処理をラップしただけなので、動き的には何も変化がない。
+
+<img
+  src="/hands-on/01-basic-rag-app/13_ex01_langchain_chat/test_langchain_route_api.webp"
+  alt=""
+/>
+
+コミットを行う。
+
+```shell title="Terminal"
+git add .
+git commit -m '13. Ex.01 LangChain Chat'
+git push
+```

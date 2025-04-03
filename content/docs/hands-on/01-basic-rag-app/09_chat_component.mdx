@@ -1,0 +1,120 @@
+---
+title: 09. Chat Component
+description: チャットコンポーネント
+icon: Rocket
+---
+
+引き続き、`Next.js App Router Quickstart` の内容を参考に開発を進めていく。
+
+Next.js App Router Quickstart<br />
+https://sdk.vercel.ai/docs/getting-started/nextjs-app-router
+
+###
+
+LLM にクエリを送ることができるルートハンドラが作成でき、OpenAI API キーの設定もできたので、
+次はフロントエンドの設定を行う。
+
+AI SDK の UI パッケージは、チャットインタフェースの複雑さを useChat という1つのフックに抽象化している。
+
+次のコードを使って、チャットメッセージのリストを表示し、ユーザーメッセージの入力を提供する Chat コンポーネントを作成する。
+
+`src/components/chat.tsx` を作成する。
+
+```bash title="Terminal"
+touch ./src/components/chat.tsx
+```
+
+```tsx title="src/components/chat.tsx"
+'use client';
+
+import { useChat } from '@ai-sdk/react';
+
+export const Chat = () => {
+  const { messages, input, handleInputChange, handleSubmit } = useChat();
+
+  return (
+    <div className="flex flex-col w-full max-w-md py-24 mx-auto stretch">
+      {messages.map((message) => (
+        <div
+          key={message.id}
+          className="whitespace-pre-wrap mb-2"
+        >
+          {message.role === 'user' ? 'あなた: ' : 'AI: '}
+          {message.parts.map((part, i) => {
+            switch (part.type) {
+              case 'text':
+                return <div key={`${message.id}-${i}`}>{part.text}</div>;
+            }
+          })}
+        </div>
+      ))}
+
+      <form onSubmit={handleSubmit}>
+        <input
+          className="fixed dark:bg-zinc-900 bottom-0 w-full max-w-md p-2 mb-8 border border-zinc-300 dark:border-zinc-800 rounded shadow-xl"
+          value={input}
+          placeholder="質問をしてください..."
+          onChange={handleInputChange}
+        />
+      </form>
+    </div>
+  );
+};
+```
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+<Callout title="ファイルの先頭に「use client」ディレクティブを追加してください" type="warn">
+「use client」ディレクティブをファイルの先頭に追加することで、
+そのファイル内のコードがクライアントサイド（ユーザのブラウザ上）で実行されるようになり、
+JavaScriptを使ってインタラクティブな動作を実現できるようになる。
+
+インタラクティブな動作とは、ブラウザ画面内でユーザの操作に反応して動的に変化する部分のことを指す。
+</Callout>
+
+ホームページで、作成した Chat コンポーネントを表示させるように、`src/app/page.tsx` を以下の内容に書き換える。
+
+```tsx title="src/app/page.tsx"
+import { Chat } from '@/components/chat';
+
+export default function Home() {
+  return <Chat />;
+}
+```
+
+### Chat コンポーネントのコードを理解する
+
+Chat コンポーネントでは、`useChat` フックを利用してる。
+このフックは、作成した POST API ルート（/api/chat）を使用する。
+
+さらに、ユーザの入力とフォームの送信を処理するための関数と状態を提供する。
+`useChat` フックは、いくつかのユーティリティ関数と状態変数を提供する。
+
+- **messages:** 現在のチャットメッセージ（id、role、parts プロパティを持つオブジェクトの配列）
+
+- **input:** ユーザの入力フィールドの現在の値
+
+- **handleInputChange と handleSubmit:** ユーザの操作（入力フィールドへの入力とフォームの送信）を処理する関数
+
+LLM の応答は、`message.parts` 配列を通じてアクセスされる。
+各メッセージは、モデルが応答で生成したすべての内容を表す順番に並べられた `parts` の配列を含んでいる。
+これらのパーツには、プレーンテキストや推論トークンなどが含まれており、後で確認することができる。
+
+`parts` 配列は、モデルの出力順序を保持しているため、生成された順番で各コンポーネントを表示したり処理したりすることが可能になる。
+
+![](/hands-on/01-basic-rag-app/09_chat_component/chat_component.png)
+
+チャットができるか、動作確認をしてみる。
+
+<img
+  src="/hands-on/01-basic-rag-app/09_chat_component/first_e2e_test.webp"
+  alt=""
+/>
+
+コミットを行う。
+
+```shell title="Terminal"
+git add .
+git commit -m '09. Chat Component'
+git push
+```

@@ -1,0 +1,65 @@
+---
+title: 08. OpenAI API Key
+description: OpenAI API キー
+icon: Rocket
+---
+
+引き続き、`Next.js App Router Quickstart` の内容を参考に開発を進めていく。
+
+Next.js App Router Quickstart<br />
+https://sdk.vercel.ai/docs/getting-started/nextjs-app-router
+
+`.env.local` を作成する。
+
+```bash title="Terminal"
+touch .env.local
+```
+
+OpenAI にログインする。
+
+OpenAI developer platform<br />
+https://platform.openai.com/docs/overview
+
+まだ OpenAI でアカウントを作成していない場合は、アカウント登録を済ませておく。
+
+まずは、ヘッダにある Dashboard ボタンをクリックする。
+
+![](/hands-on/01-basic-rag-app/08_open_ai_api_key/openai_click_dashboard_button_in_header.png)
+
+サイドバーメニューにある「API keys」を選択する。
+
+![](/hands-on/01-basic-rag-app/08_open_ai_api_key/openai_select_api_keys_in_sidebar_menu.png)
+
+「+ Create new secret key」ボタンをクリックする。
+
+![](/hands-on/01-basic-rag-app/08_open_ai_api_key/openai_submit_create_new_secret_key_button.png)
+
+Name を入力して、「Create secret key」ボタンをクリックする。
+
+![](/hands-on/01-basic-rag-app/08_open_ai_api_key/openai_enter_name_and_submit_create_secret_key_button.png)
+
+「Copy」ボタンをクリックして、生成された API キーをコピーする。
+
+![](/hands-on/01-basic-rag-app/08_open_ai_api_key/openai_copy_generated_api_key.png)
+
+コピーした API キーを OPENAI_API_KEY として、`.env.local` ファイルに貼り付ける。
+
+```txt title=".env.local"
+OPENAI_API_KEY=xxxxxxxxx
+```
+
+API キーは流出しないように注意する。
+API キーが流出すると、気づかないうちに第三者が API を利用できるようになってしまうからだ。
+
+そのためには、まずは API キーをコミットに含めないことが大切になる。
+
+コミットに含めないファイルは、`.gitignore` で定義されている。
+
+`.gitignore` は、最初にローカルリポジトリを作る、 `git init` コマンドの実行時に自動生成される。
+
+この `.gitignore` ファイルに以下の記述があり、`.env.local` ファイルもコミット対象外で定義されていることを確認しておく。
+
+```txt title=".gitignore（内容抜粋）"
+# env files (can opt-in for committing if needed)
+.env*
+```
