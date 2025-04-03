@@ -16,7 +16,7 @@ import { PromptTemplate } from '@langchain/core/prompts';
 import { ChatOpenAI } from '@langchain/openai';
 import { Message as VercelChatMessage, LangChainAdapter } from 'ai';
 
-export const dynamic = 'force-dynamic';
+export const runtime = 'edge'
 
 /**
  * 基本的なメモリフォーマッタで、メッセージ履歴を文字列化してモデルに直接渡す
