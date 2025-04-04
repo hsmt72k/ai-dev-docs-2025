@@ -1,0 +1,797 @@
+---
+title: 17. Ex.04b RAG Chat With JSON File
+description: エクササイズ.04b JSON ファイルを使ったチャット
+icon: Rocket
+---
+
+最後のエクササイズとして、JSONチャットルート API （Chat With JSON Route API）の改善を行なう。
+
+具体的には、JSON オブジェクトからデータを取得していたものを、JSON ファイルからデータを読み込み、取得を行なうようにする。
+
+`/api/chat-with-json` を修正する。
+
+```bash title="Terminal"
+mkdir ./src/app/api/chat-with-json
+touch ./src/app/api/chat-with-json/route.ts
+```
+
+```diff title="src/app/api/chat-with-json/route.ts"
+ import { PromptTemplate } from '@langchain/core/prompts';
+ import { RunnableSequence } from '@langchain/core/runnables';
+ import { ChatOpenAI } from '@langchain/openai';
+ import { Message as VercelChatMessage, LangChainAdapter } from 'ai';
+-import { CharacterTextSplitter } from 'langchain/text_splitter';
++import { JSONLoader } from 'langchain/document_loaders/fs/json';
+ import { formatDocumentsAsString } from 'langchain/util/document';
+
++const loader = new JSONLoader('src/data/city.json', [
++  '/city',
++  '/slug',
++  '/han',
++  '/mayor',
++  '/area_code',
++  '/population',
++  '/city_emblem_image',
++]);
++
+-export const runtime = 'edge';
++export const runtime = 'node';
+
+ const formatMessage = (message: VercelChatMessage) => {
+   return `${message.role}: ${message.content}`;
+ };
+
+ const TEMPLATE = `次のデータベースに基づいてユーザの質問に答えてください。もしその答えがデータベースに含まれていない場合は、情報がないことを正直に返答してください。
+ ==============================
+ Context: {context}
+ ==============================
+ Current conversation: {chat_history}
+
+ user: {question}
+ assistant:`;
+
+ export async function POST(req: Request) {
+   try {
+     const body = await req.json();
+     const messages = body.messages ?? [];
+
+     const formattedPreviousMessages = messages
+       .slice(0, -1)
+       .map(formatMessage);
+
+     const currentMessageContent = messages[messages.length - 1].content;
+
+-    const textSplitter = new CharacterTextSplitter();
+-    const docs = await textSplitter.createDocuments([
+-      JSON.stringify({
+-        city: '名古屋',
+-        slug: 'nagoya',
+-        han: '尾張',
+-        mayor: '広沢一郎',
+-        area_code: '052',
+-        population: 100,
+-      }),
+-    ]);
++    let docs = [];
++    try {
++      docs = await loader.load();
++    } catch (error) {
++      console.error('Error loading JSON data:', error);
++      return new Response(
++        JSON.stringify({ error: 'Error loading data from JSON file.' }),
++        {
++          status: 500,
++          headers: { 'Content-Type': 'application/json' },
++        },
++      );
++    }
+
+     const prompt = PromptTemplate.fromTemplate(TEMPLATE);
+
+     const model = new ChatOpenAI({
+       apiKey: process.env.OPENAI_API_KEY!,
+       model: 'gpt-4o',
+       temperature: 0.0,
+       streaming: true,
+       verbose: true,
+     });
+
+     const chain = RunnableSequence.from([
+       {
+         question: (input) => input.question,
+         chat_history: (input) => input.chat_history,
+         context: () => formatDocumentsAsString(docs),
+       },
+       prompt,
+       model,
+     ]);
+
+     const stream = await chain.stream({
+       chat_history: formattedPreviousMessages.join('\n'),
+       question: currentMessageContent,
+     });
+
+     return LangChainAdapter.toDataStreamResponse(stream);
+   } catch (error) {
+     if (error instanceof Error) {
+       return new Response(JSON.stringify({ error: error.message }), {
+         status: 500,
+         headers: { 'Content-Type': 'application/json' },
+       });
+     }
+
+     return new Response(
+       JSON.stringify({ error: 'Unknown error occurred' }),
+       { status: 500, headers: { 'Content-Type': 'application/json' } },
+     );
+   }
+ }
+```
+
+### 実行環境指定の違いについて
+
+今回は以下のように実行環境を変更している。
+
+```diff
+-export const runtime = 'edge';
++export const runtime = 'node';
+```
+
+Next.js の API Route の runtime には、主に "edge" と "node" という2つの値が設定できる。
+
+それぞれについて詳しくみていく。
+
+#### 1. "edge"
+
+##### 意味
+
+`"edge"` は Edge Functions を意味する。
+
+この設定を使うと、API Route は Vercel Edge Network（Vercel 上での CDN とサーバレスファンクション）で実行されるようになる。
+
+これにより、ユーザのリクエストに近いサーバでコードが実行されるため、応答速度が非常に高速になる。
+
+##### 特徴
+
+- より高速な応答時間が得られる（地理的に分散されたサーバで実行されるため）
+- サーバサイドの Node.js 特有の API（例えば、fs モジュールやファイルシステムの操作）が使えない
+- Vercel など、エッジで動作するプラットフォームにデプロイする際に推奨される
+
+#### 2. "node"
+
+##### 意味
+
+`"node"` は、通常の Node.js 環境 で実行されることを意味する。
+
+デフォルトで Edge Functions を使用しない場合に設定するもので、バックエンドサーバや Node.js 環境でコードを実行したい場合に使う。
+
+##### 特徴
+
+- 通常の Node.js サーバ環境で実行される。例えば、ファイルシステム（fs）へのアクセスや、Node.js 特有の API を使用することができる
+- エッジネットワーク上ではなく、通常のサーバーサイドで動作する
+
+#### どちらを使うべきか？
+
+##### `"edge"` を選ぶべきケース
+
+- 応答速度を最大化したい場合
+- ユーザの地理的に近いサーバでコードを実行したい場合
+- 短いコード実行時間が求められる場合
+
+##### `"node"` を選ぶべきケース
+
+- Node.js の API（`fs` や `path` など）を利用したい場合
+- 高度なバックエンド処理やデータベース操作が必要な場合
+- エッジではなく、従来のサーバーサイド環境で動作させたい場合
+
+#### 実行環境指定のまとめ
+
+- `export const runtime = 'edge'`: Edge Functionsで実行（地理的に近いサーバでの実行）
+- `export const runtime = 'node'`: 通常の Node.js 環境で実行
+
+どちらを使うかは、アプリケーションの要件やデプロイ先の環境に応じて選択することになる。
+
+### JSON ファイルの作成
+
+データベースとして読み込む JSON ファイルとして、`src/data/city.json` を作成する。
+
+```bash title="Terminal"
+mkdir ./src/data
+touch ./src/data/city.json
+```
+
+```json title="src/data/city.json"
+[
+  {
+    "city": "名古屋市",
+    "slug": "nagoya",
+    "han": "尾張",
+    "mayor": "広沢一郎",
+    "area_code": "052",
+    "population": "2331413",
+    "city_emblem_image": "https://upload.wikimedia.org/wikipedia/commons/d/d0/Emblem_of_Nagoya%2C_Aichi.svg"
+  },
+  {
+    "city": "横浜市",
+    "slug": "yokohama",
+    "han": "武蔵",
+    "mayor": "林文子",
+    "area_code": "045",
+    "population": "3764821",
+    "city_emblem_image": "https://upload.wikimedia.org/wikipedia/commons/2/26/Emblem_of_Yokohama%2C_Kanagawa.svg"
+  },
+  {
+    "city": "広島市",
+    "slug": "hiroshima",
+    "han": "安芸",
+    "mayor": "松井一実",
+    "area_code": "082",
+    "population": "1178206",
+    "city_emblem_image": "https://upload.wikimedia.org/wikipedia/commons/7/7a/Emblem_of_Hiroshima%2C_Hiroshima.svg"
+  },
+  {
+    "city": "札幌市",
+    "slug": "sapporo",
+    "han": "石狩",
+    "mayor": "秋元克広",
+    "area_code": "011",
+    "population": "1953569",
+    "city_emblem_image": "https://upload.wikimedia.org/wikipedia/commons/1/11/Emblem_of_Sapporo%2C_Hokkaido.svg"
+  },
+  {
+    "city": "仙台市",
+    "slug": "sendai",
+    "han": "陸奥",
+    "mayor": "郡和子",
+    "area_code": "022",
+    "population": "1093813",
+    "city_emblem_image": "https://upload.wikimedia.org/wikipedia/commons/8/8f/Emblem_of_Sendai%2C_Miyagi.svg"
+  },
+  {
+    "city": "千葉市",
+    "slug": "chiba",
+    "han": "下総",
+    "mayor": "熊谷俊人",
+    "area_code": "043",
+    "population": "984023",
+    "city_emblem_image": "https://upload.wikimedia.org/wikipedia/commons/3/39/Emblem_of_Chiba%2C_Chiba.svg"
+  },
+  {
+    "city": "川崎市",
+    "slug": "kawasaki",
+    "han": "武蔵",
+    "mayor": "福田紀彦",
+    "area_code": "044",
+    "population": "1550182",
+    "city_emblem_image": "https://upload.wikimedia.org/wikipedia/commons/d/d9/%E7%A5%9E%E5%A5%88%E5%B7%9D%E7%9C%8C%E5%B7%9D%E5%B4%8E%E5%B8%82%E5%B8%82%E7%AB%A0.svg"
+  },
+  {
+    "city": "さいたま市",
+    "slug": "saitama",
+    "han": "武蔵",
+    "mayor": "清水勇人",
+    "area_code": "048",
+    "population": "1350919",
+    "city_emblem_image": "https://upload.wikimedia.org/wikipedia/commons/1/17/Emblem_of_Saitama%2C_Saitama.svg"
+  },
+  {
+    "city": "堺市",
+    "slug": "sakai",
+    "han": "泉州",
+    "mayor": "竹山修身",
+    "area_code": "072",
+    "population": "804684",
+    "city_emblem_image": "https://upload.wikimedia.org/wikipedia/commons/f/f8/Emblem_of_Sakai%2C_Osaka.svg"
+  },
+  {
+    "city": "神戸市",
+    "slug": "kobe",
+    "han": "播磨",
+    "mayor": "久元喜造",
+    "area_code": "078",
+    "population": "1487586",
+    "city_emblem_image": "https://upload.wikimedia.org/wikipedia/commons/b/b4/Emblem_of_Kobe%2C_Hyogo.svg"
+  },
+  {
+    "city": "京都市",
+    "slug": "kyoto",
+    "han": "山城",
+    "mayor": "門川大作",
+    "area_code": "075",
+    "population": "1431969",
+    "city_emblem_image": "https://upload.wikimedia.org/wikipedia/commons/8/83/Emblem_of_Kyoto%2C_Kyoto.svg"
+  },
+  {
+    "city": "福岡市",
+    "slug": "fukuoka",
+    "han": "筑前",
+    "mayor": "高島宗一郎",
+    "area_code": "092",
+    "population": "1658999",
+    "city_emblem_image": "https://upload.wikimedia.org/wikipedia/commons/e/e5/Emblem_of_Fukuoka%2C_Fukuoka.svg"
+  },
+  {
+    "city": "北九州市",
+    "slug": "kitakyushu",
+    "han": "豊前",
+    "mayor": "北橋健治",
+    "area_code": "093",
+    "population": "904461",
+    "city_emblem_image": "https://upload.wikimedia.org/wikipedia/commons/6/67/Emblem_of_Kitakyushu%2C_Fukuoka.svg"
+  },
+  {
+    "city": "広島市",
+    "slug": "hiroshima",
+    "han": "安芸",
+    "mayor": "松井一実",
+    "area_code": "082",
+    "population": "1178206",
+    "city_emblem_image": "https://upload.wikimedia.org/wikipedia/commons/7/7a/Emblem_of_Hiroshima%2C_Hiroshima.svg"
+  },
+  {
+    "city": "岡山市",
+    "slug": "okayama",
+    "han": "備前",
+    "mayor": "大森雅夫",
+    "area_code": "086",
+    "population": "711284",
+    "city_emblem_image": "https://upload.wikimedia.org/wikipedia/commons/4/46/Emblem_of_Okayama%2C_Okayama.svg"
+  }
+]
+```
+
+JSON ファイルをデータベースとして読み込むように修正した、Chat With JSON ルート API の動作確認をしてみる。
+
+JSON ファイルの内容にしたがって回答ができているが、画像の表示ができていない。
+
+<img
+  src="/hands-on/01-basic-rag-app/17_ex04b_chat_with_json_file/test_chat_with_json_file_route_api_but_not_show_image.webp"
+  alt=""
+/>
+
+Chat コンポーネントでメッセージを表示する箇所を、まずは getAnswer() 関数として切り出す。
+
+```diff title="src/components/chat.tsx"
+ 'use client';
+
+ import { useChat } from '@ai-sdk/react';
+ import { SendHorizontalIcon } from 'lucide-react';
+ import { useEffect, useRef } from 'react';
+ import { toast } from 'sonner';
+
+ import { cn } from '@/lib/utils';
+
+ import { Button } from './ui/button';
+ import { Input } from './ui/input';
+
+ export const Chat = () => {
+   const { messages, input, handleInputChange, handleSubmit } = useChat({
+     api: 'api/chat-with-json',
+     onError: (e) => {
+       toast.error('エラーが発生しました');
+       console.log(e);
+     },
+   });
+   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+   useEffect(() => {
+     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+   }, [messages]);
+
++  const getAnswer = (messageId: string, value: string, index: number) => {
++    return <div key={`${messageId}-${index}`}>{value}</div>;
++  };
++
+   return (
+     <div className="mt-2 flex flex-col w-full max-w-2xl h-full mx-auto gap-2 bg-zinc-900 overflow-hidden">
+       <div className="flex flex-col flex-1 overflow-y-auto mb-18">
+         {messages.map((message) => (
+           <div
+             key={message.id}
+             className={cn(
+               'whitespace-pre-wrap px-5 py-3 rounded-lg mb-2 mx-8 flex gap-2',
+               message.role === 'user'
+                 ? 'bg-zinc-800 text-neutral-500 self-start'
+                 : 'text-gray-400 self-end',
+             )}
+           >
+             {message.role === 'assistant' && (
+               <div className="h-8 px-3 py-2 font-bold text-xs rounded-lg bg-[#ff6467]/20 text-zinc-500 w-auto whitespace-nowrap">
+                 回答
+               </div>
+             )}
+             {message.parts.map((part, i) => {
+               switch (part.type) {
+                 case 'text':
+-                  return <div key={`${message.id}-${i}`}>{part.text}</div>;
++                  return getAnswer(message.id, part.text, i);
+               }
+             })}
+           </div>
+         ))}
+         <div ref={messagesEndRef} />
+       </div>
+
+       <form
+         onSubmit={handleSubmit}
+         className="fixed bottom-2 w-full max-w-2xl p-4 bg-zinc-900"
+       >
+         <div className="flex w-full gap-4">
+           <Input
+             className="bg-zinc-800 w-full p-2 h-10 border border-zinc-700 rounded shadow-xl text-white placeholder:text-neutral-400"
+             value={input}
+             placeholder="質問をしてください..."
+             onChange={handleInputChange}
+           />
+
+           <Button
+             type="submit"
+             className="w-18 h-10 bg-[#00bc7d] text-white p-2 rounded hover:bg-emerald-900 hover:cursor-pointer hover:text-white/40"
+           >
+             <SendHorizontalIcon />
+           </Button>
+         </div>
+       </form>
+     </div>
+   );
+ };
+```
+
+画像がない場合は支障なく動くことを確認する。
+
+<img
+  src="/hands-on/01-basic-rag-app/17_ex04b_chat_with_json_file/test_plain_get_answer_function.webp"
+  alt=""
+/>
+
+名古屋のマークを聞いたときは、以下のように Markdown 形式の画像リンクが返ってきている。
+
+```txt title="動作結果例：質問"
+名古屋のマークを教えてください
+```
+
+```bash title="動作結果例：回答"
+名古屋市のマークはこちらです:
+![名古屋市のマーク](https://upload.wikimedia.org/wikipedia/commons/d/d0/Emblem_of_Nagoya%2C_Aichi.svg)
+```
+
+そのため画像を表示させるには、
+回答に Markdown 形式の画像リンクが含まれるか検索して、含まれていた場合は画像表示に置き換えるようにしたい。
+
+### 正規表現で検索
+
+以下の正規表現で Markdown 形式の画像リンクが含まれるかを検索する。
+
+```ts title="Markdown 形式の画像リンクが含まれるかを検索する正規表現"
+const imageMarkdownLinkRegex = /!\[([^\]]*)\]\((https?:\/\/[^\)]+)\)/g;
+```
+
+それぞれの部分が何を表しているかを分解して説明する。
+
+### `!\[([^\]]*)\]` について
+
+#### `!\[` について
+
+- `![` という文字列にマッチする。これは Markdown 形式画像リンクの開始部分
+
+#### `([^\]]*)` について
+
+- `[` と `]` で囲まれた部分にマッチする
+- `[^\]]*`： `]` 以外の文字が0回以上繰り返される文字列にマッチする
+- `()`： マッチした部分をグループ化し、後で参照できるようにする
+
+#### `\]` について
+
+- `]` という文字にマッチする
+
+### `\((https?:\/\/[^\)]+)\)` について
+
+#### `\(` について
+
+- `(` という文字にマッチする
+
+#### `(https?:\/\/[^\)]+)` について
+
+`(` と `)` で囲まれた部分にマッチする。
+
+- `https?:\/\/`： `http://` または `https://` にマッチする
+- `[^\)]+`： `)` 以外の文字が1回以上繰り返される文字列にマッチする
+- `()`： マッチした部分をグループ化し、後で参照できるようにする
+
+#### `\)` について
+
+- `)` という文字にマッチする
+
+### `/g` について
+
+- `g`： グローバル検索フラグ。このフラグがある場合、文字列全体からすべてのマッチする部分を検索する
+
+### 正規表現のまとめ
+
+まとめると、この正規表現は以下の処理を行う。
+
+1. `![` で始まり、`]` で終わる文字列（画像の代替テキスト）を抽出する
+2. その後に続く `(` と `)` で囲まれた文字列（画像のURL）を抽出する
+3. 文字列全体から、上記にマッチする部分をすべて検索する
+
+#### 抽出の具体例
+
+```md title="例"
+![猫の画像](https://example.com/cat.jpg)
+```
+
+この文字列に対して上記の正規表現を適用すると、以下の2つのグループが抽出される。
+
+1. 猫の画像
+2. https://example.com/cat.jpg
+
+### サンプル抽出処理
+
+以下のような抽出処理を考えてみる。
+
+```ts
+const value = "これは猫の画像です: ![可愛い猫](https://example.com/cat.jpg)。これは犬の画像です: ![賢い犬](https://example.com/dog.png)。";
+const imageRegex = /!\[([^\]]*)\]\((https?:\/\/[^\)]+)\)/g;
+const matches = [];
+let match;
+
+while ((match = imageRegex.exec(value)) !== null) {
+  matches.push(match);
+}
+
+console.log(matches);
+```
+
+#### マッチングループ処理
+
+マッチングループでは以下の処理を行なっている。
+
+- `while` ループを使用して、`value` 文字列からすべての画像リンクを検索する
+- `imageRegex.exec(value)` は、`value` 文字列内で次の一致する部分を検索し、その結果を `match` 変数に格納する。一致する部分が見つからなければ `null` を返す
+- `match` が `null` でない場合、つまり一致する部分が見つかった場合は、`matches.push(match)` によって、`match` の内容を `matches` 配列に追加する
+- `match` には、一致した文字列全体と、正規表現の `()` で囲まれた各グループ（代替テキストと画像のURL）が配列として格納される
+
+#### サンプル抽出結果
+
+この例では、`matches` 配列には以下の情報が格納される
+
+```json title="サンプル抽出結果"
+[
+  [
+    "![可愛い猫](https://example.com/cat.jpg)",
+    "可愛い猫",
+    "https://example.com/cat.jpg",
+    index: 14,
+    input: "これは猫の画像です: ![可愛い猫](https://example.com/cat.jpg)。これは犬の画像です: ![賢い犬](https://example.com/dog.png)。",
+    groups: undefined
+  ],
+  [
+    "![賢い犬](https://example.com/dog.png)",
+    "賢い犬",
+    "https://example.com/dog.png",
+    index: 43,
+    input: "これは猫の画像です: ![可愛い猫](https://example.com/cat.jpg)。これは犬の画像です: ![賢い犬](https://example.com/dog.png)。",
+    groups: undefined
+  ]
+]
+```
+
+`matches` 配列の各要素は、一致した文字列全体の配列であり、各要素には、一致した文字列全体、代替テキスト、画像の URL などの情報が含まれることになる。
+
+Chat コンポーネントの getAnswer() 関数を実装して、
+message.parts に画像があった場合に、画像を表示できるようにする。
+
+```diff title="src/components/chat.tsx"
+ 'use client';
+
+ import { useChat } from '@ai-sdk/react';
+ import { SendHorizontalIcon } from 'lucide-react';
++import Image from 'next/image';
+ import { useEffect, useRef } from 'react';
+ import { toast } from 'sonner';
+
+ import { cn } from '@/lib/utils';
+
+ import { Button } from './ui/button';
+ import { Input } from './ui/input';
+
+ export const Chat = () => {
+   const { messages, input, handleInputChange, handleSubmit } = useChat({
+     api: 'api/chat-with-json',
+     onError: (e) => {
+       toast.error('エラーが発生しました');
+       console.log(e);
+     },
+   });
+   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+   useEffect(() => {
+     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+   }, [messages]);
+
+   const getAnswer = (messageId: string, value: string, index: number) => {
++    const imageMarkdownLinkRegex = /!\[([^\]]*)\]\((https?:\/\/[^\)]+)\)/g;
++    const matches = [];
++    let match;
++
++    while ((match = imageMarkdownLinkRegex.exec(value)) !== null) {
++      matches.push(match);
++    }
++
++    if (matches.length > 0) {
++      const imageElements = matches.map((m, index) => (
++        <div key={index}>
++          <Image
++            src={m[2]}
++            alt={m[1] || 'image'}
++            width={128}
++            height={128}
++            className="p-4"
++          />
++        </div>
++      ));
++
++      const nonImageText = value.replace(imageMarkdownLinkRegex, '');
++
++      return (
++        <div key={`${messageId}-${index}`}>
++          <p>{nonImageText}</p>
++          {imageElements}
++        </div>
++      );
++    }
+     return <div key={`${messageId}-${index}`}>{value}</div>;
+   };
+
+   return (
+     <div className="mt-2 flex flex-col w-full max-w-2xl h-full mx-auto gap-2 bg-zinc-900 overflow-hidden">
+       <div className="flex flex-col flex-1 overflow-y-auto mb-18">
+         {messages.map((message) => (
+           <div
+             key={message.id}
+             className={cn(
+               'whitespace-pre-wrap px-5 py-3 rounded-lg mb-2 mx-8 flex gap-2',
+               message.role === 'user'
+                 ? 'bg-zinc-800 text-neutral-500 self-start'
+                 : 'text-gray-400 self-end',
+             )}
+           >
+             {message.role === 'assistant' && (
+               <div className="h-8 px-3 py-2 font-bold text-xs rounded-lg bg-[#ff6467]/20 text-zinc-500 w-auto whitespace-nowrap">
+                 回答
+               </div>
+             )}
+             {message.parts.map((part, i) => {
+               switch (part.type) {
+                 case 'text':
+                   return getAnswer(message.id, part.text, i);
+               }
+             })}
+           </div>
+         ))}
+         <div ref={messagesEndRef} />
+       </div>
+
+       <form
+         onSubmit={handleSubmit}
+         className="fixed bottom-2 w-full max-w-2xl p-4 bg-zinc-900"
+       >
+         <div className="flex w-full gap-4">
+           <Input
+             className="bg-zinc-800 w-full p-2 h-10 border border-zinc-700 rounded shadow-xl text-white placeholder:text-neutral-400"
+             value={input}
+             placeholder="質問をしてください..."
+             onChange={handleInputChange}
+           />
+
+           <Button
+             type="submit"
+             className="w-18 h-10 bg-[#00bc7d] text-white p-2 rounded hover:bg-emerald-900 hover:cursor-pointer hover:text-white/40"
+           >
+             <SendHorizontalIcon />
+           </Button>
+         </div>
+       </form>
+     </div>
+   );
+ };
+```
+
+画像も表示できるようにした、getAnser() 関数の動作確認をしてみる。
+
+JSON オブジェクトの内容のままを回答していることが分かる。
+
+<img
+  src="/hands-on/01-basic-rag-app/17_ex04b_chat_with_json_file/test_complete_get_answer_function.webp"
+  alt=""
+/>
+
+```txt title="動作結果例：質問（１）"
+広島の市長を教えてください
+```
+
+```bash title="動作結果例：回答（１）"
+広島市の市長は松井一実です。
+```
+
+```txt title="動作結果例：質問（２）"
+マークは？
+```
+
+```bash title="動作結果例：回答（２）"
+広島市のマークはこちらです
+```
+<img
+  src="https://upload.wikimedia.org/wikipedia/commons/7/7a/Emblem_of_Hiroshima%2C_Hiroshima.svg"
+  alt=""
+  width={180}
+/>
+
+```txt title="動作結果例：質問（３）"
+市長を教えてください
+```
+
+```bash title="動作結果例：回答（３）"
+どの市の市長をお知りになりたいか教えてください。
+```
+
+```txt title="動作結果例：質問（４）"
+横浜
+```
+
+```bash title="動作結果例：回答（４）"
+横浜市の市長は林文子です。
+```
+
+```txt title="動作結果例：質問（５）"
+マーク
+```
+
+```bash title="動作結果例：回答（５）"
+横浜市のマークはこちらです:
+```
+<img
+  src="https://upload.wikimedia.org/wikipedia/commons/2/26/Emblem_of_Yokohama%2C_Kanagawa.svg"
+  alt=""
+  width={180}
+/>
+
+```txt title="動作結果例：質問（６）"
+市外局番
+```
+
+```bash title="動作結果例：回答（６）"
+どの市の市外局番をお知りになりたいか教えてください。
+```
+
+```txt title="動作結果例：質問（７）"
+横浜
+```
+
+```bash title="動作結果例：回答（７）"
+横浜市の市外局番は045です。
+```
+
+```txt title="動作結果例：質問（８）"
+人口
+```
+
+```bash title="動作結果例：回答（８）"
+どの市の人口をお知りになりたいか教えてください。
+```
+
+```txt title="動作結果例：質問（９）"
+横浜
+```
+
+```bash title="動作結果例：回答（９）"
+横浜市の人口は3,764,821人です。
+```
+
+コミットを行う。
+
+```shell title="Terminal"
+git add .
+git commit -m '17. Ex.04b RAG Chat With JSON File'
+git push
+```

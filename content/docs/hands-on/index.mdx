@@ -6,79 +6,31 @@ icon: Rocket
 
 ## AI RAG アプリをステップバイステップで構築するハンズオン
 
-○メリット<br />
-基礎的な概念をステップバイステップで理解しながら構築を進められる
+RAG についての基礎的な概念をステップバイステップで理解しながら AI チャットアプリの構築を進めるハンズオン
 
-○難易度：やさしい
+|難易度 |作業量 |
+|:-- |:-- |
+|やさしい |軽い |
 
-○作業量：軽い
+### ハンズオンもくじ
 
-内容：
-- 作成するアプリの概要
-- RAG（Retrieval Augmented Generation）の概念 <span style={{"color": "#ff6467"}}>⇒★完了</span>
-- LangChain の概要 <span style={{"color": "#ff6467"}}>⇒★完了</span>
-- プロジェクトのセットアップ <span style={{"color": "#ff6467"}}>⇒★完了</span>
-- OpenAI APIキーの設定方法 <span style={{"color": "#ff6467"}}>⇒★完了</span>
-- 必要なライブラリとパッケージのインストール <span style={{"color": "#ff6467"}}>⇒★完了</span>
-- Next.js でチャットコンポーネントを実装 <span style={{"color": "#ff6467"}}>⇒★完了</span>
-- 簡単なチャットの例 <span style={{"color": "#ff6467"}}>⇒★完了</span>
-- LangChainを使ってチャットボットを強化する方法 <span style={{"color": "#ff6467"}}>⇒★完了</span>
-- チャット履歴を保持し、会話の流れを改善する方法 <span style={{"color": "#ff6467"}}>⇒★完了</span>
-- チャットボットに特定のペルソナを与える方法
-- JSON オブジェクトを使ってRAGパターンを実装
-
-## 01. What's RAG?
-
-- [RAG とは何ですか？](./hands-on/01-basic-rag-app/01_whats_rag)
-
-## 02. What's LangChain?
-
-- [LangChain とは何ですか？](./hands-on/01-basic-rag-app/02_whats_lang_chain)
-
-## 03. Setup NVM
-
-- [NVM のセットアップ](./hands-on/01-basic-rag-app/03_setup_nvm)
-
-## 04. Setup Next.js Project
-
-- [Next.js プロジェクトのセットアップ](./hands-on/01-basic-rag-app/04_setup_nextjs_project)
-
-## 05. Setup shadcn/ui
-
-- [shadcn/ui のセットアップ](./hands-on/01-basic-rag-app/05_setup_shadcn_ui)
-
-## 06. Add Dependencies
-
-- [依存関係を追加する](./hands-on/01-basic-rag-app/06_add_dependencies)
-
-## 07. AI Route Handler
-
-- [AI ルートハンドラ](./hands-on/01-basic-rag-app/07_ai_route_handler)
-
-## 08. OpenAI API Key
-
-- [OpenAI API キー](./hands-on/01-basic-rag-app/08_open_ai_api_key)
-
-## 09. Chat Component
-
-- [チャットコンポーネント](./hands-on/01-basic-rag-app/09_chat_component)
-
-## 10. Improve Basic Chat UI
-
-- [基本的なチャット UI を改善する](./hands-on/01-basic-rag-app/10_improve_basic_chat_ui)
-
-## 11. Add LangChain Dependencies
-
-- [LangChain の依存関係を追加する](./hands-on/01-basic-rag-app/11_add_langchain_dependencies)
-
-## 12. Exception Handling
-
-- [例外処理](./hands-on/01-basic-rag-app/12_exception_handling)
-
-## 13. Ex.01 LangChain Chat
-
-- [エクササイズ.01 LangChain チャット](./hands-on/01-basic-rag-app/13_ex01_langchain_chat)
-
-## 14. Ex.02 Chat With History
-
-- [エクササイズ.02 履歴付属チャット](./hands-on/01-basic-rag-app/14_ex02_chat_with_history)
+|ステップ |リンク |
+|:-- |-- |
+|01. What's RAG? |[RAG とは何ですか？](./hands-on/01-basic-rag-app/01_whats_rag) |
+|02. What's LangChain? |[LangChain とは何ですか？](./hands-on/01-basic-rag-app/02_whats_lang_chain) |
+|03. Setup NVM |[Next.js プロジェクトのセットアップ](./hands-on/01-basic-rag-app/04_setup_nextjs_project) |
+|04. Setup Next.js Project|[RAG とは何ですか？](./hands-on/01-basic-rag-app/01_whats_rag) |
+|05. Setup shadcn/ui |[shadcn/ui のセットアップ](./hands-on/01-basic-rag-app/05_setup_shadcn_ui) |
+|06. Add Dependencies |[依存関係を追加する](./hands-on/01-basic-rag-app/06_add_dependencies) |
+|07. AI Route Handler |[AI ルートハンドラ](./hands-on/01-basic-rag-app/07_ai_route_handler) |
+|08. OpenAI API Key |[OpenAI API キー](./hands-on/01-basic-rag-app/08_open_ai_api_key) |
+|09. Chat Component |[チャットコンポーネント](./hands-on/01-basic-rag-app/09_chat_component) |
+|10. Improve Basic Chat UI |[基本的なチャット UI を改善する](./hands-on/01-basic-rag-app/10_improve_basic_chat_ui) |
+|11. Add LangChain Dependencies |[LangChain の依存関係を追加する](./hands-on/01-basic-rag-app/11_add_langchain_dependencies) |
+|12. Exception Handling |[トーストと例外処理](./hands-on/01-basic-rag-app/12_exception_handling) |
+|13. Ex.01 LangChain Chat |[エクササイズ.01 LangChain チャット](./hands-on/01-basic-rag-app/13_ex01_langchain_chat) |
+|14. Ex.02 Chat With History |[エクササイズ.02 履歴付属チャット](./hands-on/01-basic-rag-app/14_ex02_chat_with_history) |
+|15. Ex.03 Chat With Personality |[エクササイズ.03 キャラクタを持ったチャット](./hands-on/01-basic-rag-app/15_ex03_chat_with_personality) |
+|16. Ex.04a RAG Chat With JSON Object |[エクササイズ.04a JSON オブジェクトを使ったチャット](./hands-on/01-basic-rag-app/16_ex04a_chat_with_json_object) |
+|17. Ex.04b RAG Chat With JSON File |[エクササイズ.04b JSON ファイルを使ったチャット](./hands-on/01-basic-rag-app/17_ex04b_chat_with_json_file) |
+|18. Final Assignment |[最終課題](./hands-on/01-basic-rag-app/18_final_assignment) |

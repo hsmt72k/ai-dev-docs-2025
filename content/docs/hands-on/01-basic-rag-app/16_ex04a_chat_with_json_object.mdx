@@ -1,17 +1,17 @@
 ---
 title: 16. Ex.04a RAG Chat With JSON Object
-description: エクササイズ.04a JSONオブジェクトを使ったチャット
+description: エクササイズ.04a JSON オブジェクトを使ったチャット
 icon: Rocket
 ---
 
-新しいエンドポイントとして、`/api/chat-with-personality`、個性付属チャットルート API （Chat With Personality Route API）を作成する。
+新しいエンドポイントとして、`/api/chat-with-personality`、JSONチャットルート API （Chat With JSON Route API）を作成する。
 
 ```bash title="Terminal"
 mkdir ./src/app/api/chat-with-json
 touch ./src/app/api/chat-with-json/route.ts
 ```
 
-```diff title="src/app/api/chat-with-json/route.ts"
+```ts title="src/app/api/chat-with-json/route.ts"
 import { PromptTemplate } from '@langchain/core/prompts';
 import { RunnableSequence } from '@langchain/core/runnables';
 import { ChatOpenAI } from '@langchain/openai';
@@ -25,7 +25,7 @@ const formatMessage = (message: VercelChatMessage) => {
   return `${message.role}: ${message.content}`;
 };
 
-const TEMPLATE = `次のデータベースに基づいてユーザの質問に答えてください。もしその答えがデータベースに含まれていない場合は、情報がないことを超時期に返答してください。
+const TEMPLATE = `次のデータベースに基づいてユーザの質問に答えてください。もしその答えがデータベースに含まれていない場合は、情報がないことを正直に返答してください。
 ==============================
 Context: {context}
 ==============================
@@ -54,7 +54,6 @@ export async function POST(req: Request) {
         mayor: '広沢一郎',
         area_code: '052',
         population: 100,
-        population_rank: 34,
       }),
     ]);
 
@@ -97,6 +96,80 @@ export async function POST(req: Request) {
   }
 }
 ```
+
+### temperature、streaming、verbose の役割と目的について
+
+`@langchain/openai` パッケージの ChatOpenAI モデルには、数多くの設定パラメータが用意されいる。
+
+以下は、設定パラメータのうちの temperature、streaming、verbose の役割と目的についての説明である。
+
+#### 1. temperature
+
+##### 役割
+
+モデルの出力のランダム性（創造性）を制御するパラメータ
+
+##### 低い値 (例: `0.0`)
+
+出力が非常に決定論的になる。モデルは最も確率が高い単語を選択し、同じプロンプトに対してほぼ同じ応答を返す。
+
+適用例: 正確な回答が必要なタスク（翻訳、分類、フォーマット変換など）
+
+例: 「春の季語を絡めた冗談を教えてください。」 → 「春眠暁を覚えず。」
+
+##### 高い値 (例: `1.0`):
+
+出力がランダムで創造性が増す。確率が低い単語も選ばれる可能性があり、応答が多様になる。
+
+適用例: 創造的なタスク（広告コピー作成、詩の生成など）。
+
+例: 「春の季語を絡めた冗談を教えてください。」 → 「春は眠くても、花粉症は目覚めてる！」
+
+##### 推奨値:
+
+非創造的タスクでは `0.0` ～ `0.3`
+
+創造的タスクでは `0.7` ～ `1.0`
+
+極端に高い値（例: `2.0`）は「ハルシネーション」（意味不明な応答）が増えるリスクがある。
+
+#### 2. streaming
+
+##### 役割
+
+モデルからの応答をリアルタイムでストリーミングする機能。
+
+##### 有効化 (true)
+
+モデルの応答を逐次的に受け取ることができる。
+
+ユーザーは待ち時間を減らしながら、部分的な結果をリアルタイムで確認可能。
+
+適用例: チャットアプリケーションやインタラクティブなUI。
+
+例: 「春の季語を絡めた冗談を教えてください。」 → 応答が1文字ずつまたは単語単位で表示される。
+
+##### 無効化 (false)
+
+モデルは完全な応答を生成してから送信する
+
+適用例: バッチ処理や非インタラクティブなシステム。
+
+注意点:
+
+ストリーミングには適切なコールバックやレスポンス処理が必要.
+
+#### 3. verbose
+
+##### 役割
+
+処理中の詳細情報（デバッグ情報やプロンプト内容）をログとして出力する設定。
+
+|パラメータ |所属インタフェース |主な目的 |適用例 |
+|:-- |:-- |:-- |:-- |
+|temperature |OpenAIBaseInput |出力のランダム性と創造性を制御 |翻訳 (低温度)、詩生成 (高温度) |
+|streaming |OpenAIBaseInput |応答をリアルタイムで逐次的に受け取る |チャットアプリケーション |
+|verbose |BaseLangChainParams |プロンプトやチェーンの詳細情報をログ出力 |デバッグやプロンプト確認 |
 
 Chat コンポーネントの useChat フックで、呼び出す API のエンドポイントを、作成した `/api/chat-with-json` に変更する。
 
