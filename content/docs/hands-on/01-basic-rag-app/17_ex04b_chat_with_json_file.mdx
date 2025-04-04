@@ -379,7 +379,14 @@ Chat コンポーネントでメッセージを表示する箇所を、まずは
    }, [messages]);
 
 +  const getAnswer = (messageId: string, value: string, index: number) => {
-+    return <div key={`${messageId}-${index}`}>{value}</div>;
++    return (
++      <div
++        key={`${messageId}-${index}`}
++        className="break-words overflow-hidden"
++      >
++        <p style={{ overflowWrap: 'anywhere' }}>{value}</p>
++      </div>
++    );
 +  };
 +
    return (
@@ -634,13 +641,24 @@ message.parts に画像があった場合に、画像を表示できるように
 +      const nonImageText = value.replace(imageMarkdownLinkRegex, '');
 +
 +      return (
-+        <div key={`${messageId}-${index}`}>
-+          <p>{nonImageText}</p>
++        <div
++          key={`${messageId}-${index}`}
++          className="break-words overflow-hidden"
++        >
++          <p style={{ overflowWrap: 'anywhere' }}>{nonImageText}</p>
 +          {imageElements}
 +        </div>
 +      );
 +    }
-     return <div key={`${messageId}-${index}`}>{value}</div>;
++
+     return (
+       <div
+         key={`${messageId}-${index}`}
+         className="break-words overflow-hidden"
+       >
+         <p style={{ overflowWrap: 'anywhere' }}>{value}</p>
+       </div>
+     );
    };
 
    return (
