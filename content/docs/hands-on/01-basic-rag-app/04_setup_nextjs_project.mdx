@@ -14,17 +14,34 @@ node -v
 v22.14.0
 ```
 
-Bun をインストールしていない場合は、以下のコマンドで Bun をインストールする。
+Bun をインストールしていない場合は、Bun の公式ドキュメントにしたがって、
+以下ののコマンドで Bun をインストールする。
 
 ```bash title="Terminal"
-winget install Oven-sh.Bun
+powershell -c "irm bun.sh/install.ps1 | iex"
 ```
 
-bunx.exe の場所を環境変数 Path に追加する。
+Bun Docs<br />
+https://bun.sh/docs
+
+Win キーを押して、「システム環境変数」と入力して、「システム環境変数の編集」ウィンドウを開く。
+
+ユーザ環境変数 Path に、`bun.exe` と `bunx.exe` が格納されているフォルダのパスが追加されていることを確認する。
 
 ```txt title="Example of path of bunx.exe"
-C:\Users\{ユーザ名}\AppData\Local\Microsoft\WinGet\Packages\Oven-sh.Bun_Microsoft.Winget.Source_8wekyb3d8bbwe\bun-windows-x64
+C:\Users\hsmt7\.bun\bin
 ```
+
+![](/hands-on/01-basic-rag-app/04_setup_nextjs_project/window_of_system_env_variable_editor.png)
+
+![](/hands-on/01-basic-rag-app/04_setup_nextjs_project/path_to_bun_exe_and_bunx_exe.png)
+
+`bun.exe` と `bunx.exe` が格納されている場所へのパスが通っていることで `bun` コマンドや `bunx` コマンドが実行できるようになる。
+
+![](/hands-on/01-basic-rag-app/04_setup_nextjs_project/bun_exe_and_bunx_exe.png)
+
+Terminal を開いたままだとインストールが反映されないため、一度、`exit` コマンドでターミナルを閉じてから、
+再度 Terminal を開きなおす。
 
 Bun のバージョンを確認する。
 
@@ -71,7 +88,7 @@ bunx -v
 1.2.5
 ```
 
-プロジェクトフォルダを作成する。
+任意の場所（プロジェクト作成用のワークスペースフォルダなど）に、プロジェクトフォルダを作成する。
 
 ```bash title="Terminal"
 mkdir ./chat-ai-rag-2025-04
@@ -86,7 +103,6 @@ VSCode で開いたら、`Shift + @` キーでターミナルを開く。
 Windows Terminal では以下のコマンドを実行して、Next.js プロジェクトを作成する。
 
 ```bash title="Terminal"
-cd ./chat-ai-rag-2025-04
 bunx create-next-app@latest .
 ```
 
@@ -181,6 +197,98 @@ http://localhost:3000
 
 ![](/hands-on/01-basic-rag-app/04_setup_nextjs_project/home_page.png)
 
+Git をインストールしていない場合は、Git for Windows をインストールしておく。
+
+```bash title="Terminal"
+winget install -e --id Git.Git
+```
+
+Git for Windows をインストールすると、付属で GitBash もインストールされる。
+
+Windows Terminal で GitBash を使えるようにする。
+
+まずは、Terminal で Ctrl + カンマキー「,」を押して、設定ページを開く。
+
+設定ページの一番下にある「JSON ファイルを開く」をクリックする。
+
+![](/hands-on/01-basic-rag-app/04_setup_nextjs_project/open_json_file_in_windows_terminal.png)
+
+すると、settings.json が開くので以下の箇所に Git Bash の設定を追記する。
+
+```diff title="settings.json"
+ {
+   ...,
+   "profiles": {
+     "defaults": {},
+     "list": [
+       {
+         "guid": "{61c54bbd-c2c6-5271-96e7-009a87ff44bf}",
+         "hidden": false,
+         "name": "Windows PowerShell"
+       },
+       {
+         "guid": "{0caa0dad-35be-5f56-a8ff-afceeeaa6101}",
+         "hidden": false,
+         "name": "\u30b3\u30de\u30f3\u30c9 \u30d7\u30ed\u30f3\u30d7\u30c8"
+       },
+       {
+         "guid": "{b453ae62-4e3d-5e58-b989-0a998ec441b8}",
+         "hidden": false,
+         "name": "Azure Cloud Shell",
+         "source": "Windows.Terminal.Azure"
+       },
+       {
+         "guid": "{2c4de342-38b7-51cf-b940-2309a097f518}",
+         "hidden": false,
+         "name": "Ubuntu",
+         "source": "Windows.Terminal.Wsl"
+       },
+       {
+         "guid": "{b8d9d897-6961-5fb6-af21-9d4d23ca29f3}",
+         "hidden": false,
+         "name": "Developer Command Prompt for VS 2022",
+         "source": "Windows.Terminal.VisualStudio"
+       },
+       {
+         "guid": "{2590db62-4e84-50bf-826a-e10f43c17aa0}",
+         "hidden": false,
+         "name": "Developer PowerShell for VS 2022",
+         "source": "Windows.Terminal.VisualStudio"
+-      }
++      },
++            {
++        "closeOnExit": "graceful",
++        "colorScheme": "Campbell",
++        "commandline": "\"C:\\Program Files\\Git\\bin\\bash.exe\" --login -i -l",
++        "cursorColor": "#FFFFFF",
++        "cursorShape": "bar",
++        "font": {
++          "face": "Consolas",
++          "size": 12
++        },
++        "guid": "{****}",
++        "historySize": 9001,
++        "icon": "C:\\Program Files\\Git\\mingw64\\share\\git\\git-for-windows.ico",
++        "name": "Git Bash",
++        "opacity": 100,
++        "padding": "10, 0, 10, 0",
++        "snapOnInput": true,
++        "startingDirectory": "%USERPROFILE%"
++      },
+     ]
+   },
+   ...
+ }
+```
+
+ユーザフォルダ配下に「.bash_profile」を作成し、以下の内容を記載しておく。
+
+```txt title=".bash_profile"
+chcp.com 65001
+```
+
+![](/hands-on/01-basic-rag-app/04_setup_nextjs_project/bash_profile.png)
+
 Formatter を設定するために `.prettierrc` ファイルを作成する。
 
 ```bash title="Terminal"
@@ -253,6 +361,17 @@ Lint 設定をカスタマイズするために、`eslint.config.mjs` を修正�
 
  export default eslintConfig;
 ```
+
+VSCode で以下の８つの拡張機能をインストールしておく。
+
+- ESLint
+- Prettier - Code formatter
+- GitLens — Git supercharged
+- IntelliCode
+- JetBrains Rider Dark Theme
+- vscode-icons
+- Code Spell Checker
+- Color Highlight
 
 `.vscode/settings.json` を作成する。
 

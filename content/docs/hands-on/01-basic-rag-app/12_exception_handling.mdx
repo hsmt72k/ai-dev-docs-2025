@@ -70,7 +70,7 @@ https://ui.shadcn.com/docs/components/sonner
  export const maxDuration = 30;
 
  export async function POST(req: Request) {
-+  throw new Error('Occurred API Error');
++  throw new Error('API エラー');
    const { messages } = await req.json();
 
    const result = streamText({
