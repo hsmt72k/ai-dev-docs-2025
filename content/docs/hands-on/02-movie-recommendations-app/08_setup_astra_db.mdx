@@ -1,0 +1,151 @@
+---
+title: 08. Setup Astra DB
+description: Astra DB のセットアップ
+icon: Rocket
+---
+
+## Astra DB の設定
+
+Astra DBは、生成 AI アプリケーションを構築するためのプラットフォームです。今から Astra DB の設定を進めていきます。
+
+### 1. サインイン
+
+まず、DataStax のアカウントにログインします。
+
+すでにアカウントを作成している場合は、GitHub アカウント、Google アカウント、もしくはメールアドレスでログイン可能です。
+
+Astra DB | DataStax<br />
+https://astra.datastax.com
+
+![](/hands-on/02-movie-recommendations-app/08_setup_astra_db/data_stax_login.png)
+
+![](/hands-on/02-movie-recommendations-app/08_setup_astra_db/data_stax_dashboard.png)
+
+### 2. データベースの作成
+
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+<Steps>
+<Step>
+
+#### 1. データベース作成ボタンをクリック
+
+ダッシュボード上で「Create Database（データベースの作成）」ボタンをクリックします。
+
+![](/hands-on/02-movie-recommendations-app/08_setup_astra_db/data_stax_database_of_sidebar_menu.png)
+
+![](/hands-on/02-movie-recommendations-app/08_setup_astra_db/data_stax_submit_create_database_button.png)
+
+</Step>
+
+<Step>
+
+#### 2. データベースタイプの選択
+
+ベクトルデータベースか、または伝統的なノーマルなデータベースかを選択できます。
+
+生成 AI アプリケーションでは、「Serverless (Vector)」を選択します。
+
+![](/hands-on/02-movie-recommendations-app/08_setup_astra_db/data_stax_type_of_severless_vector.png)
+
+</Step>
+
+<Step>
+
+#### 3. 名前の入力
+
+データベースの名前を入力します（例: `"movie-recommendation-ai-2025-04"`）。
+
+</Step>
+
+<Step>
+
+#### 4. プロバイダーとリージョンの選択
+
+データベースのホスティングプロバイダー（例: AWS、Google Cloud、Azure）とリージョンを選択します。
+
+今回は Google Cloud を選択する例を挙げます。
+
+</Step>
+
+<Step>
+
+#### 5. データベースの作成
+
+「Create Database」ボタンをクリックし、数分待つとデータベースが準備完了になります。
+
+![](/hands-on/02-movie-recommendations-app/08_setup_astra_db/data_stax_submit_create_database_button_in_modal.png)
+
+</Step>
+</Steps>
+
+### 3. 統合の設定
+
+<Steps>
+<Step>
+
+#### 1. 統合（Integrations）セクションに移動
+
+ヘッダにある「Settings」をクリックします。
+
+![](/hands-on/02-movie-recommendations-app/08_setup_astra_db/data_stax_click_settings_button_in_header.png)
+
+Settings 画面の左サイドバーメニューにある、「Integrations」をクリックします。
+
+![](/hands-on/02-movie-recommendations-app/08_setup_astra_db/data_stax_click_integrations_in_settings_sidebar_menu.png)
+
+</Step>
+
+<Step>
+
+#### 2. 統合ツールの選択
+
+Astra DB は、以下のような数多くの Embedding Provider と簡単に統合できます。
+
+- NVIDIA
+- OpenAI
+- Huggin Face (Dedicated)
+- Huggin Face (Serverless)
+- Jina AI
+- Upstage
+- Mistral AI
+- Voyage AI
+- Azue OpenAI
+
+今回は OpenAI Embeddings との統合を選択します。
+
+![](/hands-on/02-movie-recommendations-app/08_setup_astra_db/data_stax_select_openai_integration.png)
+
+</Step>
+
+<Step>
+
+#### 3. 統合の追加（OpenAI API キーが必要）
+
+「Add integration」ボタンをクリックします。
+
+![](/hands-on/02-movie-recommendations-app/08_setup_astra_db/data_stax_submit_add_integration_button_for_openai.png)
+
+OpenAI API キーの入力を求められるので、この後、OpenAI のダッシュボードで API キーの発行を行ないます。
+
+![](/hands-on/02-movie-recommendations-app/08_setup_astra_db/data_stax_required_openai_api_key.png)
+
+</Step>
+</Steps>
+
+### ベクトルデータベースの活用
+
+Astra DB は、生成 AI アプリケーションで重要な役割を果たすベクトルデータベース機能を提供しています。
+この機能により、以下が可能になります。
+
+- データ検索時に類似度比較が簡単に行える
+- ベクトル化された情報（例: 映画プロット）を効率的に保存・管理
+- 高速かつ低遅延でリアルタイム処理が可能
+
+![](/hands-on/02-movie-recommendations-app/00_05_setup_astra_db_01/vector_database_utilization.svg)
+
+### まとめ
+
+Astra DB は、生成 AI アプリケーション構築に必要なツールと機能を備えた強力なプラットフォームです。
+サーバーレス設計や多様な統合オプションによって、初心者でも簡単に設定・利用できます。
+クレジットカードなしで無料から始められるので、開発を始めやすいプラットフォームとなっています。
