@@ -117,7 +117,10 @@ async function MovieIdPage({
             <MoviePoster
               key={movie._id}
               index={i + 1}
-              similarityRating={Number(movie.$similarity.toFixed(2)) * 100}
+              similarityRating={
+                movie.$similarity &&
+                Number(movie.$similarity.toFixed(2)) * 100
+              }
               movie={movie}
             />
           ))}
@@ -343,7 +346,10 @@ boolean 型のプロップに値を渡さないようにすると、コンポー
              <MoviePoster
                key={movie._id}
                index={i + 1}
-               similarityRating={Number(movie.$similarity.toFixed(2)) * 100}
+               similarityRating={
+                 movie.$similarity &&
+                 Number(movie.$similarity.toFixed(2)) * 100
+               }
                movie={movie}
 +              isSimilarity
              />
@@ -363,7 +369,7 @@ boolean 型のプロップに値を渡さないようにすると、コンポー
 
 コミットを行う。
 
-```shell title="Terminal"
+```bash title="Terminal"
 git add .
 git commit -m '05. Dynamic Movie ID Page'
 git push

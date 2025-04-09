@@ -146,7 +146,7 @@ const ImageWithFallback = (props: ImageWithFallbackProps) => {
       />
       {isNoImage && (
         <p
-          className="absolute top-44 left-18 text-white/20 text-center font-extrabold"
+          className="absolute top-44 left-18 text-white/40 text-center"
           style={{ textShadow: '10px 10px 20px rgba(0, 0, 0, 0.8)' }}
         >
           ポスター画像が
@@ -244,7 +244,7 @@ MoviePoster コンポーネントを修正して、
 
 コミットを行う。
 
-```shell title="Terminal"
+```bash title="Terminal"
 git add .
 git commit -m '13. Fallback Image Implementation'
 git push
