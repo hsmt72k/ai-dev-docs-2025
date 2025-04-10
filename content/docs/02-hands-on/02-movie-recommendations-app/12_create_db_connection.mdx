@@ -1,0 +1,86 @@
+---
+title: 12. DB 接続の作成
+description: Create DB Connection
+icon: DatabaseZap
+---
+
+`@datastax/astra-db-ts` パッケージをインストールする。
+
+```bash title="Terminal"
+bun add @datastax/astra-db-ts
+```
+
+`src/lib/db.ts` を作成する。
+
+```bash title="Terminal"
+touch ./src/lib/db.ts
+```
+
+```ts title="src/lib/db.ts"
+import { DataAPIClient } from '@datastax/astra-db-ts';
+
+const { ASTRA_DB_APPLICATION_TOKEN, ASTRA_DB_API_ENDPOINT } = process.env;
+
+if (!ASTRA_DB_APPLICATION_TOKEN || !ASTRA_DB_API_ENDPOINT) {
+  throw new Error('Missing Astra credentials');
+}
+
+const client = new DataAPIClient(ASTRA_DB_APPLICATION_TOKEN, {
+  httpOptions: {
+    client: 'fetch',
+  },
+});
+
+const db = client.db(ASTRA_DB_API_ENDPOINT);
+
+console.log(`* Connected to DB ${db.id}`);
+
+export default db;
+```
+
+`src/app/page.tsx` を修正して、
+DB から全件取得して、レコードをコンソールログに表示させてみる。
+
+```diff title="src/app/page.tsx"
+ import MoviePoster from '@/components/movie-poster';
+ import { mockMovies } from '@/data/movie-mock-data';
++import db from '@/lib/db';
++
++import type { Movie } from '@/types';
++
+-export default function Home() {
++export default async function Home() {
++  const movies = db.collection('movies');
++
++  const allMovies = (await movies.find({}).toArray()) as Movie[];
++
++  console.log('ALL_MOVIES', allMovies);
++
+   return (
+     <div className="flex items-center justify-center pb-24 pt-12">
+       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10">
+         {mockMovies.map((movie) => (
+           <MoviePoster
+             key={movie._id}
+             movie={movie}
+           />
+         ))}
+       </div>
+     </div>
+   );
+ }
+```
+
+ブラウザで F12 キーを押し、devtools を開き、Console タブを確認する。
+
+DB への接続が成功し、取得した 250 件のレコードが表示されていることがわかる。
+
+![](/02-hands-on/02-movie-recommendations-app/12_create_db_connection/client_console_logs_of_all_movies_records.png)
+
+コミットを行う。
+
+```bash title="Terminal"
+git add .
+git commit -m '12. Create DB Connection'
+git push
+```

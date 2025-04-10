@@ -1,0 +1,604 @@
+---
+title: 10. 基本的なチャット UI を改善する
+description: Improve Basic Chat UI
+icon: CircleFadingArrowUp
+---
+
+`src/components/header.tsx` を作成する。
+
+```bash title="Terminal"
+touch ./src/components/header.tsx
+```
+
+```tsx title="src/components/header.tsx"
+import { Dog } from 'lucide-react';
+
+export const Header = () => {
+  return (
+    <div className="sticky top-0 z-10 p-4 flex items-center justify-center gap-4 bg-zinc-900/90 shadow-md">
+      <Dog className="text-white" />
+      <h1 className="text-xl text-white font-host-grotesk font-extrabold">
+        RAGGER AI
+      </h1>
+    </div>
+  );
+};
+```
+
+`src/app/page.tsx` を修正して、Header コンポーネントを表示させ、背景を黒くする。
+
+```diff title="src/app/page.tsx"
+ import { Chat } from '@/components/chat';
++import { Header } from '@/components/header';
+
+ export default function Home() {
+-  return <Chat />;
++  return (
++    <div className="h-screen flex flex-col bg-zinc-900">
++      <Header />
++      <Chat />
++    </div>
++  );
+ }
+```
+
+![](/02-hands-on/01-basic-rag-app/10_improve_basic_chat_ui/add_header_component_and_change_bg_black.png)
+
+`src/components/chat.tsx` を修正して、黒にした背景に文字が埋もれないように、文字色を調整する。
+
+また、自分の質問と、AI の回答がブロックごとに見やすくなるようにスタイルを調整する。
+
+```diff title="src/components/chat.tsx"
+ 'use client';
+
+ import { useChat } from '@ai-sdk/react';
+
++import { cn } from '@/lib/utils';
++
+ export const Chat = () => {
+   const { messages, input, handleInputChange, handleSubmit } = useChat();
+
+   return (
+     <div className="flex flex-col w-full max-w-md py-24 mx-auto stretch">
+       {messages.map((message) => (
+         <div
+           key={message.id}
+-          className="whitespace-pre-wrap mb-2"
++          className={cn(
++            'whitespace-pre-wrap px-5 py-3 rounded-lg mb-2 mx-8 flex gap-2',
++            message.role === 'user'
++              ? 'bg-zinc-800 text-neutral-500'
++              : 'text-gray-400',
++          )}
+         >
+           {message.role === 'user' ? 'あなた: ' : 'AI: '}
+           {message.parts.map((part, i) => {
+             switch (part.type) {
+               case 'text':
+                 return <div key={`${message.id}-${i}`}>{part.text}</div>;
+             }
+           })}
+         </div>
+       ))}
+
+       <form onSubmit={handleSubmit}>
+         <input
+           className="fixed dark:bg-zinc-900 bottom-0 w-full max-w-md p-2 mb-8 border border-zinc-300 dark:border-zinc-800 rounded shadow-xl"
+           value={input}
+           placeholder="質問をしてください..."
+           onChange={handleInputChange}
+         />
+       </form>
+     </div>
+   );
+ };
+```
+
+![](/02-hands-on/01-basic-rag-app/10_improve_basic_chat_ui/styled_font_color_of_chats.png)
+
+現状、１点表示が崩れている部分がある。
+
+回答が表示されたときに、画面全体に縦スクロールバーが発生して、入力フォームの高さ分のホワイトスペースが生まれてしまっている。
+
+直接的な原因は、入力フォームを fixed を使って、画面下部に固定表示させているためである。
+
+<img
+  src="/02-hands-on/01-basic-rag-app/10_improve_basic_chat_ui/created_useless_white_spaces_in_bottom.webp"
+  alt=""
+/>
+
+Chat コンポーネントを修正して、発生した余分なホワイトスペースを表示させないようにする。
+
+動作確認をして、画面全体の立てスクロールバーが発生しないことを確認する。
+
+```diff title="src/components/chat.tsx"
+ 'use client';
+
+ import { useChat } from '@ai-sdk/react';
+
+ import { cn } from '@/lib/utils';
+
+ export const Chat = () => {
+   const { messages, input, handleInputChange, handleSubmit } = useChat();
+
+   return (
+-    <div className="flex flex-col w-full max-w-md py-24 mx-auto stretch">
++    <div className="flex flex-col w-full max-w-md py-24 mx-auto stretch overflow-hidden">
+       {messages.map((message) => (
+         <div
+           key={message.id}
+           className={cn(
+             'whitespace-pre-wrap px-5 py-3 rounded-lg mb-2 mx-8 flex gap-2',
+             message.role === 'user'
+               ? 'bg-zinc-800 text-neutral-500'
+               : 'text-gray-400',
+           )}
+         >
+           {message.role === 'user' ? 'あなた: ' : 'AI: '}
+           {message.parts.map((part, i) => {
+             switch (part.type) {
+               case 'text':
+                 return <div key={`${message.id}-${i}`}>{part.text}</div>;
+             }
+           })}
+         </div>
+       ))}
+
+       <form onSubmit={handleSubmit}>
+         <input
+           className="fixed dark:bg-zinc-900 bottom-0 w-full max-w-md p-2 mb-8 border border-zinc-300 dark:border-zinc-800 rounded shadow-xl"
+           value={input}
+           placeholder="質問をしてください..."
+           onChange={handleInputChange}
+         />
+       </form>
+     </div>
+   );
+ };
+```
+
+shadcn/ui で input コンポーネントを追加する。
+
+```shell title="Terminal"
+bunx --bun shadcn@latest add input
+```
+
+生の HTML の input タグで入力フォームを表示させていたが、
+この入力フォームを shadcn/ui の Input コンポーネントに置き換える。
+
+Input コンポーネントを使うことで、
+入力フォーカス時などのスタイルが調整済みのコンポーネントを手軽に使うことができる。
+
+```diff title="src/components/chat.tsx"
+ 'use client';
+
+ import { useChat } from '@ai-sdk/react';
+
+ import { cn } from '@/lib/utils';
+
++import { Input } from './ui/input';
++
+ export const Chat = () => {
+   const { messages, input, handleInputChange, handleSubmit } = useChat();
+
+   return (
+     <div className="flex flex-col w-full max-w-md py-24 mx-auto stretch overflow-hidden">
+       {messages.map((message) => (
+         <div
+           key={message.id}
+           className={cn(
+             'whitespace-pre-wrap px-5 py-3 rounded-lg mb-2 mx-8 flex gap-2',
+             message.role === 'user'
+               ? 'bg-zinc-800 text-neutral-500'
+               : 'text-gray-400',
+           )}
+         >
+           {message.role === 'user' ? 'あなた: ' : 'AI: '}
+           {message.parts.map((part, i) => {
+             switch (part.type) {
+               case 'text':
+                 return <div key={`${message.id}-${i}`}>{part.text}</div>;
+             }
+           })}
+         </div>
+       ))}
+
+-      <form onSubmit={handleSubmit}>
+-        <input
+-          className="fixed dark:bg-zinc-900 bottom-0 w-full max-w-md p-2 mb-8 border border-zinc-300 dark:border-zinc-800 rounded shadow-xl"
++      <form
++        onSubmit={handleSubmit}
++        className="fixed bottom-2 w-full max-w-md p-4 bg-zinc-900"
++      >
++        <Input
++          className="bg-zinc-800 w-full p-2 h-10 border border-zinc-700 rounded shadow-xl text-white placeholder:text-neutral-400"
+           value={input}
+           placeholder="質問をしてください..."
+           onChange={handleInputChange}
+         />
+       </form>
+     </div>
+   );
+ };
+```
+
+![](/02-hands-on/01-basic-rag-app/10_improve_basic_chat_ui/replaced_shadcn_input_component.png)
+
+フォームに送信ボタンを追加する。
+
+```diff title="src/components/chat.tsx"
+ 'use client';
+
+ import { useChat } from '@ai-sdk/react';
++import { SendHorizontalIcon } from 'lucide-react';
+
+ import { cn } from '@/lib/utils';
+
++import { Button } from './ui/button';
+ import { Input } from './ui/input';
+
+ export const Chat = () => {
+   const { messages, input, handleInputChange, handleSubmit } = useChat();
+
+   return (
+     <div className="flex flex-col w-full max-w-md py-24 mx-auto stretch overflow-hidden">
+       {messages.map((message) => (
+         <div
+           key={message.id}
+           className={cn(
+             'whitespace-pre-wrap px-5 py-3 rounded-lg mb-2 mx-8 flex gap-2',
+             message.role === 'user'
+               ? 'bg-zinc-800 text-neutral-500'
+               : 'text-gray-400',
+           )}
+         >
+           {message.role === 'user' ? 'あなた: ' : 'AI: '}
+           {message.parts.map((part, i) => {
+             switch (part.type) {
+               case 'text':
+                 return <div key={`${message.id}-${i}`}>{part.text}</div>;
+             }
+           })}
+         </div>
+       ))}
+
+       <form
+         onSubmit={handleSubmit}
+         className="fixed bottom-2 w-full max-w-md p-4 bg-zinc-900"
+       >
+         <Input
+           className="bg-zinc-800 w-full p-2 h-10 border border-zinc-700 rounded shadow-xl text-white placeholder:text-neutral-400"
+           value={input}
+           placeholder="質問をしてください..."
+           onChange={handleInputChange}
+         />
++
++        <Button
++          type="submit"
++          className="w-18 h-10 bg-[#00bc7d] text-white p-2 rounded hover:bg-emerald-900 hover:cursor-pointer hover:text-white/40"
++        >
++          <SendHorizontalIcon />
++        </Button>
+       </form>
+     </div>
+   );
+ };
+```
+
+![](/02-hands-on/01-basic-rag-app/10_improve_basic_chat_ui/add_send_button_to_form.png)
+
+入力フォームと送信ボタンが横並びで表示されるように、２つの要素を div タグで囲む。
+
+div タグには、Flexbox を適用して、要素と要素の間隔を `gap-4` にする。
+
+```diff title="src/components/chat.tsx"
+ 'use client';
+
+ import { useChat } from '@ai-sdk/react';
+ import { SendHorizontalIcon } from 'lucide-react';
+
+ import { cn } from '@/lib/utils';
+
+ import { Button } from './ui/button';
+ import { Input } from './ui/input';
+
+ export const Chat = () => {
+   const { messages, input, handleInputChange, handleSubmit } = useChat();
+
+   return (
+     <div className="flex flex-col w-full max-w-md py-24 mx-auto stretch overflow-hidden">
+       {messages.map((message) => (
+         <div
+           key={message.id}
+           className={cn(
+             'whitespace-pre-wrap px-5 py-3 rounded-lg mb-2 mx-8 flex gap-2',
+             message.role === 'user'
+               ? 'bg-zinc-800 text-neutral-500'
+               : 'text-gray-400',
+           )}
+         >
+           {message.role === 'user' ? 'あなた: ' : 'AI: '}
+           {message.parts.map((part, i) => {
+             switch (part.type) {
+               case 'text':
+                 return <div key={`${message.id}-${i}`}>{part.text}</div>;
+             }
+           })}
+         </div>
+       ))}
+
+       <form
+         onSubmit={handleSubmit}
+         className="fixed bottom-2 w-full max-w-md p-4 bg-zinc-900"
+       >
++        <div className="flex w-full gap-4">
+           <Input
+             className="bg-zinc-800 w-full p-2 h-10 border border-zinc-700 rounded shadow-xl text-white placeholder:text-neutral-400"
+             value={input}
+             placeholder="質問をしてください..."
+             onChange={handleInputChange}
+           />
+
+           <Button
+             type="submit"
+             className="w-18 h-10 bg-[#00bc7d] text-white p-2 rounded hover:bg-emerald-900 hover:cursor-pointer hover:text-white/40"
+           >
+             <SendHorizontalIcon />
+           </Button>
++        </div>
+       </form>
+     </div>
+   );
+ };
+```
+
+![](/02-hands-on/01-basic-rag-app/10_improve_basic_chat_ui/flexbox_applied_input_form_and_send_button.png)
+
+現状、回答が追加されても、スクロールできず内容を見ることができない。
+
+
+チャットリストにスクロールバーが表示されるようにし、回答が追加された場合はチャットの最終位置にスクロールが自動で行なわれるようにする。
+
+```diff title="src/components/chat.tsx"
+ 'use client';
+
+ import { useChat } from '@ai-sdk/react';
+ import { SendHorizontalIcon } from 'lucide-react';
++import { useEffect, useRef } from 'react';
+
+ import { cn } from '@/lib/utils';
+
+ import { Button } from './ui/button';
+ import { Input } from './ui/input';
+
+ export const Chat = () => {
+   const { messages, input, handleInputChange, handleSubmit } = useChat();
++  const messagesEndRef = useRef<HTMLDivElement>(null);
++
++  useEffect(() => {
++    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
++  }, [messages]);
+
+   return (
+-    <div className="flex flex-col w-full max-w-md py-24 mx-auto stretch overflow-hidden">
++    <div className="mt-2 flex flex-col w-full max-w-md h-full mx-auto gap-2 bg-zinc-900 overflow-hidden">
++      <div className="flex flex-col flex-1 overflow-y-auto mb-18">
+         {messages.map((message) => (
+           <div
+             key={message.id}
+             className={cn(
+               'whitespace-pre-wrap px-5 py-3 rounded-lg mb-2 mx-8 flex gap-2',
+               message.role === 'user'
+                 ? 'bg-zinc-800 text-neutral-500'
+                 : 'text-gray-400',
+             )}
+           >
+             {message.role === 'user' ? 'あなた: ' : 'AI: '}
+             {message.parts.map((part, i) => {
+               switch (part.type) {
+                 case 'text':
+                   return <div key={`${message.id}-${i}`}>{part.text}</div>;
+               }
+             })}
+           </div>
+         ))}
++        <div ref={messagesEndRef} />
++      </div>
+
+       <form
+         onSubmit={handleSubmit}
+         className="fixed bottom-2 w-full max-w-md p-4 bg-zinc-900"
+       >
+         <div className="flex w-full gap-4">
+           <Input
+             className="bg-zinc-800 w-full p-2 h-10 border border-zinc-700 rounded shadow-xl text-white placeholder:text-neutral-400"
+             value={input}
+             placeholder="質問をしてください..."
+             onChange={handleInputChange}
+           />
+
+           <Button
+             type="submit"
+             className="w-18 h-10 bg-[#00bc7d] text-white p-2 rounded hover:bg-emerald-900 hover:cursor-pointer hover:text-white/40"
+           >
+             <SendHorizontalIcon />
+           </Button>
+         </div>
+       </form>
+     </div>
+   );
+ };
+```
+
+<img
+  src="/02-hands-on/01-basic-rag-app/10_improve_basic_chat_ui/enable_auto_vertical_scroll.webp"
+  alt=""
+/>
+
+文章量が多い場合でも内容を読みやすくするよう、チャットリストとフォームの横幅を広げる。
+
+```diff title="src/components/chat.tsx"
+ 'use client';
+
+ import { useChat } from '@ai-sdk/react';
+ import { SendHorizontalIcon } from 'lucide-react';
+ import { useEffect, useRef } from 'react';
+
+ import { cn } from '@/lib/utils';
+
+ import { Button } from './ui/button';
+ import { Input } from './ui/input';
+
+ export const Chat = () => {
+   const { messages, input, handleInputChange, handleSubmit } = useChat();
+   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+   useEffect(() => {
+     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+   }, [messages]);
+
+   return (
+-    <div className="mt-2 flex flex-col w-full max-w-md h-full mx-auto gap-2 bg-zinc-900 overflow-hidden">
++    <div className="mt-2 flex flex-col w-full max-w-2xl h-full mx-auto gap-2 bg-zinc-900 overflow-hidden">
+       <div className="flex flex-col flex-1 overflow-y-auto mb-18">
+         {messages.map((message) => (
+           <div
+             key={message.id}
+             className={cn(
+               'whitespace-pre-wrap px-5 py-3 rounded-lg mb-2 mx-8 flex gap-2',
+               message.role === 'user'
+                 ? 'bg-zinc-800 text-neutral-500'
+                 : 'text-gray-400',
+             )}
+           >
+             {message.role === 'user' ? 'あなた: ' : 'AI: '}
+             {message.parts.map((part, i) => {
+               switch (part.type) {
+                 case 'text':
+                   return <div key={`${message.id}-${i}`}>{part.text}</div>;
+               }
+             })}
+           </div>
+         ))}
+         <div ref={messagesEndRef} />
+       </div>
+
+       <form
+         onSubmit={handleSubmit}
+-        className="fixed bottom-2 w-full max-w-md p-4 bg-zinc-900"
++        className="fixed bottom-2 w-full max-w-2xl p-4 bg-zinc-900"
+       >
+         <div className="flex w-full gap-4">
+           <Input
+             className="bg-zinc-800 w-full p-2 h-10 border border-zinc-700 rounded shadow-xl text-white placeholder:text-neutral-400"
+             value={input}
+             placeholder="質問をしてください..."
+             onChange={handleInputChange}
+           />
+
+           <Button
+             type="submit"
+             className="w-18 h-10 bg-[#00bc7d] text-white p-2 rounded hover:bg-emerald-900 hover:cursor-pointer hover:text-white/40"
+           >
+             <SendHorizontalIcon />
+           </Button>
+         </div>
+       </form>
+     </div>
+   );
+ };
+```
+
+![](/02-hands-on/01-basic-rag-app/10_improve_basic_chat_ui/expand_width_of_chat_list_and_input_form.png)
+
+質問と回答が見やすくなるように、さらにスタイルを調整する。
+
+```diff title="src/components/chat.tsx"
+ 'use client';
+
+ import { useChat } from '@ai-sdk/react';
+ import { SendHorizontalIcon } from 'lucide-react';
+ import { useEffect, useRef } from 'react';
+
+ import { cn } from '@/lib/utils';
+
+ import { Button } from './ui/button';
+ import { Input } from './ui/input';
+
+ export const Chat = () => {
+   const { messages, input, handleInputChange, handleSubmit } = useChat();
+   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+   useEffect(() => {
+     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+   }, [messages]);
+
+   return (
+     <div className="mt-2 flex flex-col w-full max-w-2xl h-full mx-auto gap-2 bg-zinc-900 overflow-hidden">
+       <div className="flex flex-col flex-1 overflow-y-auto mb-18">
+         {messages.map((message) => (
+           <div
+             key={message.id}
+             className={cn(
+               'whitespace-pre-wrap px-5 py-3 rounded-lg mb-2 mx-8 flex gap-2',
+               message.role === 'user'
+-                ? 'bg-zinc-800 text-neutral-500'
+-                : 'text-gray-400',
++                ? 'bg-zinc-800 text-neutral-500 self-start'
++                : 'text-gray-400 self-end',
+             )}
+           >
+-            {message.role === 'user' ? 'あなた: ' : 'AI: '}
++            {message.role === 'assistant' && (
++              <div className="h-8 px-3 py-2 font-bold text-xs rounded-lg bg-[#ff6467]/20 text-zinc-500 w-auto whitespace-nowrap">
++                回答
++              </div>
++            )}
+             {message.parts.map((part, i) => {
+               switch (part.type) {
+                 case 'text':
+                   return <div key={`${message.id}-${i}`}>{part.text}</div>;
+               }
+             })}
+           </div>
+         ))}
+         <div ref={messagesEndRef} />
+       </div>
+
+       <form
+         onSubmit={handleSubmit}
+         className="fixed bottom-2 w-full max-w-2xl p-4 bg-zinc-900"
+       >
+         <div className="flex w-full gap-4">
+           <Input
+             className="bg-zinc-800 w-full p-2 h-10 border border-zinc-700 rounded shadow-xl text-white placeholder:text-neutral-400"
+             value={input}
+             placeholder="質問をしてください..."
+             onChange={handleInputChange}
+           />
+
+           <Button
+             type="submit"
+             className="w-18 h-10 bg-[#00bc7d] text-white p-2 rounded hover:bg-emerald-900 hover:cursor-pointer hover:text-white/40"
+           >
+             <SendHorizontalIcon />
+           </Button>
+         </div>
+       </form>
+     </div>
+   );
+ };
+```
+
+<img
+  src="/02-hands-on/01-basic-rag-app/10_improve_basic_chat_ui/more_styled_chat_list.webp"
+  alt=""
+/>
+
+コミットを行う。
+
+```shell title="Terminal"
+git add .
+git commit -m '10. Improve Basic Chat UI'
+git push
+```

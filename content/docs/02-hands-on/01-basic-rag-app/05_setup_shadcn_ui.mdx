@@ -1,0 +1,287 @@
+---
+title: 05. Setup shadcn/ui
+description: shadcn/ui のセットアップ
+icon: Glasses
+---
+
+shadcn/ui を初期化する。
+
+```bash title="Terminal"
+bunx --bun shadcn@latest init
+```
+
+オプションは以下の通りに選択する。
+
+```
+√ Which color would you like to use as the base color? » Slate
+```
+
+```bash title="shadcn@latest init コマンドの実行結果"
+✔ Preflight checks.
+✔ Verifying framework. Found Next.js.
+✔ Validating Tailwind CSS config. Found v4.
+✔ Validating import alias.
+√ Which color would you like to use as the base color? » Slate
+✔ Writing components.json.
+✔ Checking registry.
+✔ Updating src\app\globals.css
+✔ Installing dependencies.
+ℹ Skipped 1 files: (files might be identical, use --overwrite to overwrite)
+  - src\lib\utils.ts
+
+Success! Project initialization completed.
+You may now add components.
+```
+
+shadcn/ui で button コンポーネントを追加する。
+
+```shell title="Terminal"
+bunx --bun shadcn@latest add button
+```
+
+```bash title="shadcn@latest add button コマンドの実行結果"
+✔ Checking registry.
+✔ Installing dependencies.
+✔ Created 1 file:
+  - src\components\ui\button.tsx
+```
+
+`src/app/page.tsx` を修正して、Button コンポーネントを表示させてみる。
+
+```diff title="src/app/page.tsx"
++import { Button } from '@/components/ui/button';
++
+ export default function Home() {
+   return (
+     <div className="h-screen flex justify-center items-center">
+       <h1 className="font-extrabold">RAG を使った AI チャットアプリ</h1>
++      <Button>Click me!</Button>
+     </div>
+-  )
++  );
+ }
+```
+
+![](/02-hands-on/01-basic-rag-app/05_setup_shadcn_ui/add_plain_button.png)
+
+Flexbox を使って、h1 と Button を縦並びで表示させてみる。
+
+```diff title="src/app/page.tsx"
+ import { Button } from '@/components/ui/button';
+
+ export default function Home() {
+   return (
+     <div className="h-screen flex justify-center items-center">
++      <div className="flex flex-col items-center gap-6">
+         <h1 className="font-extrabold">RAG を使った AI チャットアプリ</h1>
+         <Button>Click me!</Button>
++      </div>
+     </div>
+   );
+ }
+```
+
+![](/02-hands-on/01-basic-rag-app/05_setup_shadcn_ui/flexbox_to_h1_and_button.png)
+
+ボタンを赤く小さく表示させてみる。
+
+```diff title="src/app/page.tsx"
+ import { Button } from '@/components/ui/button';
+
+ export default function Home() {
+   return (
+     <div className="h-screen flex justify-center items-center">
+       <div className="flex flex-col items-center gap-6">
+         <h1 className="font-extrabold">RAG を使った AI チャットアプリ</h1>
+-        <Button>Click me!</Button>
++        <Button
++          size="sm"
++          variant="destructive"
++        >
++          Click me!
++        </Button>
+       </div>
+     </div>
+   );
+ }
+```
+
+![](/02-hands-on/01-basic-rag-app/05_setup_shadcn_ui/change_button_variant_to_destructive.png)
+
+`size="sm"`、`variant="destructive"` などの size や variant（変形）の定義は、
+`shadcn@latest add button` コマンドで生成された `src/components/ui/button.ts` で行なわれている。
+
+```tsx title="src/components/ui/button.ts ファイルの抜粋"
+...
+
+const buttonVariants = cva(
+  ...
+  {
+    variants: {
+      variant: {
+        default:
+          'bg-primary text-primary-foreground shadow-xs hover:bg-primary/90',
+        destructive:
+          'bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60',
+        outline:
+          'border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50',
+        secondary:
+          'bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80',
+        ghost:
+          'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
+        link: 'text-primary underline-offset-4 hover:underline',
+      },
+      size: {
+        default: 'h-9 px-4 py-2 has-[>svg]:px-3',
+        sm: 'h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5',
+        lg: 'h-10 rounded-md px-6 has-[>svg]:px-4',
+        icon: 'size-9',
+      },
+    },
+    defaultVariants: {
+      variant: 'default',
+      size: 'default',
+    },
+  },
+);
+
+function Button({
+  ...props
+}) {
+  ...
+
+  return (
+    ...
+  );
+}
+
+export { Button, buttonVariants };
+```
+
+variant や size は、自分で追加することもできる。
+
+`src/components/ui/button.tsx` に `size="xl"` を追加してみる。
+
+```diff title="src/components/ui/button.tsx"
+ import { Slot } from '@radix-ui/react-slot';
+ import { cva, type VariantProps } from 'class-variance-authority';
+ import * as React from 'react';
+
+ import { cn } from '@/lib/utils';
+
+ const buttonVariants = cva(
+   "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
+   {
+     variants: {
+       variant: {
+         default:
+           'bg-primary text-primary-foreground shadow-xs hover:bg-primary/90',
+         destructive:
+           'bg-destructive text-white shadow-xs hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60',
+         outline:
+           'border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50',
+         secondary:
+           'bg-secondary text-secondary-foreground shadow-xs hover:bg-secondary/80',
+         ghost:
+           'hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50',
+         link: 'text-primary underline-offset-4 hover:underline',
+       },
+       size: {
+         default: 'h-9 px-4 py-2 has-[>svg]:px-3',
+         sm: 'h-8 rounded-md gap-1.5 px-3 has-[>svg]:px-2.5',
+         lg: 'h-10 rounded-md px-6 has-[>svg]:px-4',
++        xl: 'h-24 rounded-2xl px-18 has-[>svg]:px-8',
+         icon: 'size-9',
+       },
+     },
+     defaultVariants: {
+       variant: 'default',
+       size: 'default',
+     },
+   },
+ );
+
+ function Button({
+   className,
+   variant,
+   size,
+   asChild = false,
+   ...props
+ }: React.ComponentProps<'button'> &
+   VariantProps<typeof buttonVariants> & {
+     asChild?: boolean;
+   }) {
+   const Comp = asChild ? Slot : 'button';
+
+   return (
+     <Comp
+       data-slot="button"
+       className={cn(buttonVariants({ variant, size, className }))}
+       {...props}
+     />
+   );
+ }
+
+ export { Button, buttonVariants };
+```
+
+```diff title="src/app/page.tsx"
+ import { Button } from '@/components/ui/button';
+
+ export default function Home() {
+   return (
+     <div className="h-screen flex justify-center items-center">
+       <div className="flex flex-col items-center gap-6">
+         <h1 className="font-extrabold">RAG を使った AI チャットアプリ</h1>
+         <Button
+-          size="sm"
++          size="xl"
+           variant="destructive"
+         >
+           Click me!
+         </Button>
+       </div>
+     </div>
+   );
+ }
+```
+
+![](/02-hands-on/01-basic-rag-app/05_setup_shadcn_ui/add_size_xl_to_button_component.png)
+
+ボタンに以下のスタイル調整をしてみる。
+
+- フォントサイズを大きく
+- 表示フォントを Google Font の Host Grotesk フォントに変更
+- ボタンにホバーした際にマウスポインターを手の形に変化させる
+- ボタンにホバーした際に、透明度 60% に透過させる
+
+```diff title="src/app/page.tsx"
+ import { Button } from '@/components/ui/button';
+
+ export default function Home() {
+   return (
+     <div className="h-screen flex justify-center items-center">
+       <div className="flex flex-col items-center gap-6">
+         <h1 className="font-extrabold">RAG を使った AI チャットアプリ</h1>
+         <Button
+           size="xl"
+           variant="destructive"
++          className="text-6xl font-host-grotesk hover:cursor-pointer hover:opacity-60"
+         >
+           Click me!
+         </Button>
+       </div>
+     </div>
+   );
+ }
+```
+
+![](/02-hands-on/01-basic-rag-app/05_setup_shadcn_ui/adjust_styles_to_button.png)
+
+コミットを行う。
+
+```shell title="Terminal"
+git add .
+git commit -m '05. Setup shadcn/ui'
+git push
+```

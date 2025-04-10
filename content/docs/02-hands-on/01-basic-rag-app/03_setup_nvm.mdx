@@ -1,0 +1,301 @@
+---
+title: 03. NVM のセットアップ
+description: Setup NVM
+icon: ArrowUpDown
+---
+
+このセクションでは、nvm（Node.js Version Manager） for Windows を使って、
+複数バージョンの Node.js を使用できるようにしていきます。
+
+## NVM とは
+
+NVM（Node.js Version Manager）は、Windows システムに複数バージョンの Node.js をインストールして管理するためのツールです。
+Node.js のバージョンをプロジェクトごとに切り替えることが簡単にでき、開発環境を効率化できます。
+
+import Image from 'next/image';
+
+<Image
+  src="https://upload.wikimedia.org/wikipedia/commons/d/d9/Node.js_logo.svg"
+  width={180}
+  height={180}
+  alt="Node.js Logo"
+/>
+
+---
+
+## NVM の必要性
+
+GitHub のトレンドを見ても、アプリ開発で Node.js の使用が増えてきています。
+しかし、Node.js はバージョンアップのサイクルが早く、環境依存が強いため、複数のバージョンを管理する必要があります。
+
+そのため、複数バージョンを使い分けるためには NVM が有用です。
+
+<Image
+  src="https://raw.githubusercontent.com/nvm-sh/logos/HEAD/nvm-logo-color.svg"
+  width={180}
+  height={180}
+  alt="NVM Logo"
+/>
+
+---
+
+## Winget によるインストール
+
+Windows 端末に Winget がインストールされていれば、以下のコマンドで簡単に NVM をインストールできます。
+
+```bash title="nvm をインストール"
+winget install -e --id CoreyButler.NVMforWindows
+```
+
+Winget が分からない方は、ChatGPT に尋ねて、環境を確認、構築してみてください。
+
+Winget が使えない場合は、以下から `Source code(zip)` ファイルをダウンロードしてインストールできます。
+
+NVM Releases<br />
+https://github.com/nvm-sh/nvm/releases
+
+### NVM のインストール場所確認
+
+次のコマンドを Windows Terminal（Git Bash）で実行して、NVM がインストールされた場所を確認します。
+
+```bash title="NVM のインストール場所を確認"
+which nvm
+```
+
+```bash title="実行結果例"
+/c/Users/{ユーザ名}/AppData/Roaming/nvm/nvm
+```
+
+Windows での Terminal の利用方法や Terminal で GitBash を適用する方法が分からない場合も、
+ChatGPT に尋ねて、環境を確認、構築してみてください。
+
+---
+
+## 環境変数の確認
+
+NVM インストール後、以下の環境変数が自動で設定されていることを確認します。
+
+|変数 |値 |
+|:-- |:-- |
+|NVM_HOME	|C:\Users\ユーザ名\AppData\Roaming\nvm |
+|NVM_SYMLINK	|C:\Program Files\nodejs |
+
+Windows のシステム環境変数の見方や編集方法が分からない場合も、ChatGPT で調べてみてください。
+
+とくに、システム環境変数とユーザ環境変数の違い、環境変数 Path について一度、理解を深めてください。
+
+環境変数が正しいことを確認した後、ターミナルを再起動して反映させます。
+
+---
+
+## Node.js バージョンの確認
+
+### インストールされているバージョンの確認
+
+以下のコマンドで、 インストールされている Node.js のバージョンと、現在適用されている Node.js のバージョンを確認できます。
+
+```bash title="インストール済みのバージョンと、適用されているバージョンを確認"
+nvm list
+```
+
+```bash title="実行結果例（NVM をインストールしたばかりで、まだ Node.js を1つもインストールしていない場合）"
+No installations recognized.
+```
+
+### 利用可能なバージョンの一覧表示
+
+以下のコマンドで、 インストール可能な Node.js のバージョン一覧が表示されます。
+
+```bash title="インストール可能な Node.js バージョン一覧を表示"
+nvm list available
+```
+
+```bash title="実行結果例（2025/04/02 時点）"
+|   CURRENT    |     LTS      |  OLD STABLE  | OLD UNSTABLE |
+|--------------|--------------|--------------|--------------|
+|   23.11.0    |   22.14.0    |   0.12.18    |   0.11.16    |
+|   23.10.0    |   22.13.1    |   0.12.17    |   0.11.15    |
+|    23.9.0    |   22.13.0    |   0.12.16    |   0.11.14    |
+|    23.8.0    |   22.12.0    |   0.12.15    |   0.11.13    |
+|    23.7.0    |   22.11.0    |   0.12.14    |   0.11.12    |
+|    23.6.1    |   20.19.0    |   0.12.13    |   0.11.11    |
+|    23.6.0    |   20.18.3    |   0.12.12    |   0.11.10    |
+|    23.5.0    |   20.18.2    |   0.12.11    |    0.11.9    |
+|    23.4.0    |   20.18.1    |   0.12.10    |    0.11.8    |
+|    23.3.0    |   20.18.0    |    0.12.9    |    0.11.7    |
+|    23.2.0    |   20.17.0    |    0.12.8    |    0.11.6    |
+|    23.1.0    |   20.16.0    |    0.12.7    |    0.11.5    |
+|    23.0.0    |   20.15.1    |    0.12.6    |    0.11.4    |
+|   22.10.0    |   20.15.0    |    0.12.5    |    0.11.3    |
+|    22.9.0    |   20.14.0    |    0.12.4    |    0.11.2    |
+|    22.8.0    |   20.13.1    |    0.12.3    |    0.11.1    |
+|    22.7.0    |   20.13.0    |    0.12.2    |    0.11.0    |
+|    22.6.0    |   20.12.2    |    0.12.1    |    0.9.12    |
+|    22.5.1    |   20.12.1    |    0.12.0    |    0.9.11    |
+|    22.5.0    |   20.12.0    |   0.10.48    |    0.9.10    |
+```
+
+---
+
+## 最新の Node.js バージョンをインストール
+
+以下のコマンドで最新の Node.js バージョンをインストールできます。
+
+```bash title="最新の Node.js バージョンをインストール"
+nvm install latest
+```
+
+インストール後、以下のコマンドでインストールされたバージョンを確認します。
+
+```bash title="インストールされている Node.js のバージョンを確認"
+nvm list
+```
+
+```bash title="実行結果例（最新バージョンをインストール後）"
+    23.11.0
+```
+
+### Node.js のバージョン確認
+
+Node.js のバージョンを確認すると、まだ適用されていないのでエラーになります。
+
+```bash title="Node.js のバージョンを確認"
+node -v
+```
+
+```bash title="実行結果例"
+bash: node: command not found
+```
+
+---
+
+## Node.js バージョンのアクティブ化
+
+以下のコマンドでアクティブにする Node.js バージョンを指定します。
+
+```bash title="アクティブにする Node.js のバージョンを指定"
+nvm use アクティブにしたいNode.jsのバージョン番号
+```
+
+```bash title="指定例"
+nvm use 23.11.0
+```
+
+```bash title="実行結果例"
+Now using node v23.11.0 (64-bit)
+```
+
+再度、インストールされているバージョンを確認すると、指定したバージョンがアクティブになっていることが確認できます。
+
+```bash title="再度、インストールされている Node.js のバージョンを確認"
+nvm list
+```
+
+```bash title="nvm use 20.5.1 実行後の nvm list コマンド実行結果例"
+  * 23.11.0 (Currently using 64-bit executable)
+```
+
+---
+
+## 安定版のインストール
+
+LTS（Long Term Support）版の安定版 Node.js をインストールするには、次のコマンドを実行します。
+
+```bash title="安定版の Node.js をインストール"
+nvm install lts
+```
+
+```bash title="実行結果例"
+Downloading node.js version 22.14.0 (64-bit)...
+Extracting node and npm...
+Complete
+npm v10.2.3 installed successfully.
+
+
+Installation complete. If you want to use this version, type
+
+nvm use 22.14.0
+```
+
+インストール後、以下のコマンドでインストールされたバージョンを確認します。
+
+```bash title="再度、インストールされている Node.js のバージョンを確認"
+nvm list
+```
+
+実行結果例では Ver. 22.14.0 がインストールできているが、
+nvm list で確認すると、Ver. 22.14.0 がアクティブになっていないことが分かる。
+
+```bash title="安定版（LTS）をインストール後の nvm list 実行結果例"
+  * 23.11.0 (Currently using 64-bit executable)
+    22.14.0
+```
+
+次に、nvm use で安定版に切り替えてみます。
+
+```bash title="Ver. 22.14.0 にバージョンを切り替え"
+nvm use 22.14.0
+```
+
+切替後、`nvm list` を実行すると、想定通り Ver. 22.14.0 が有効になっていることが分かります。
+
+```bash title="Ver. 22.14.0 に切替後の nvm list コマンド実行結果例"
+    23.11.0
+  * 22.14.0 (Currently using 64-bit executable)
+```
+
+以下のコマンドで、 Node.js のバージョンを確認してみると、NVM で有効にしたバージョンになっていることも分かります。
+
+```bash title="Node.js のバージョンを確認"
+node -v
+```
+
+```bash title="実行結果例"
+v22.14.0
+```
+
+---
+
+## バージョン番号を指定してインストール
+
+特定のバージョンをインストールするには、以下のコマンドを使用します。
+
+```bash title="バージョン番号を指定して、NVM で Node.js をインストール"
+nvm install バージョン番号
+```
+
+Ver. 20.19.0 をインストールしてみます。
+
+```bash title="NVM で Ver. 20.19.0 の Node.js をインストール"
+nvm install 20.19.0
+```
+
+`nvm list` でインストールできたかを確認してみます。
+
+```bash title="nvm list の実行結果例"
+   23.11.0
+ * 22.14.0 (Currently using 64-bit executable)
+   20.19.0
+```
+
+---
+
+## バージョンのアンインストール
+
+インストールしたバージョンをアンインストールするには、次のコマンドを使用します。
+
+```bash title="バージョン番号を指定して、NVM で Node.js をアンインストール"
+nvm uninstall バージョン番号
+```
+
+```bash title="NVM で Ver. 20.19.0 の Node.js をアンインストール"
+nvm uninstall 20.19.0
+```
+
+---
+
+### NVM のまとめ
+
+- Windows システムに NVM をインストールすることで、複数の Node.js バージョンを管理できる
+- 必要に応じて、バージョンを切り替えたり、新しいバージョンをインストールしたりすることができる
+- Windows の複数ユーザー環境では、各ユーザーごとに NVM をインストールする必要がある

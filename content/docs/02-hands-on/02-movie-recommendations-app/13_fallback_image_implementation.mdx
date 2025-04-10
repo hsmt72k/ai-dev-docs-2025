@@ -1,0 +1,251 @@
+---
+title: 13. フォールバック画像の実装
+description: Fallback Image Implementation
+icon: ImageOff
+---
+
+`src/app/page.tsx` を修正して、
+今までモックデータで表示していたものを、DB から取得したデータを表示するようにする。
+
+```diff title="src/app/page.tsx"
+ import MoviePoster from '@/components/movie-poster';
+-import { mockMovies } from '@/data/movie-mock-data';
+ import db from '@/lib/db';
+
+ import type { Movie } from '@/types';
+
+ export default async function Home() {
+   const movies = db.collection('movies');
+
+   const allMovies = (await movies.find({}).toArray()) as Movie[];
+
+-  console.log('ALL_MOVIES', allMovies);
+-
+   return (
+     <div className="flex items-center justify-center pb-24 pt-12">
+       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10">
+-        {mockMovies.map((movie) => (
++        {allMovies.map((movie) => (
+           <MoviePoster
+             key={movie._id}
+             movie={movie}
+           />
+         ))}
+       </div>
+     </div>
+   );
+ }
+```
+
+### Next.js 画像最適化機能のセキュリティ対策
+
+画面を表示させてみるとエラーが発生してしまう。
+
+これは、悪意のあるユーザーが任意のドメインから無制限に画像を取得・最適化するようなリクエストを送り、
+サーバーに負荷をかけるといった攻撃を防ぐために発生するエラーです。
+
+```bash title="Unhandled Runtime Error"
+Error: Invalid src prop (https://m.media-amazon.com/images/M/MV5BOTgxMDQwMDk0OF5BMl5BanBnXkFtZTgwNjU5OTg2NDE@._V1_SX300.jpg)
+on `next/image`, hostname "m.media-amazon.com" is not configured under images in your `next.config.js`
+
+See more info: https://nextjs.org/docs/messages/next-image-unconfigured-host
+```
+
+```txt title="エラーの日本語訳"
+エラー: next/image の src プロパティに指定された無効な URL が指定されています。
+ホスト名「m.media-amazon.com」は next.config.js の images 設定に追加されていません。
+```
+
+このエラーを回避するには、`next.config.ts` を修正する。
+
+```diff title="next.config.ts"
+ import type { NextConfig } from 'next';
+
+ const nextConfig: NextConfig = {
+-  /* config options here */
++  images: {
++    remotePatterns: [
++      {
++        protocol: 'https',
++        hostname: 'm.media-amazon.com',
++        pathname: '/images/M/MV5*',
++      },
++    ],
++  },
+ };
+
+ export default nextConfig;
+```
+
+`remotePatterns` 設定では、どの外部ドメインからの画像を最適化して配信することを許可するかを明示的に定義する。
+
+1. `protocol: 'https'` - `HTTPS` プロトコルからの画像のみを許可
+2. `hostname: 'm.media-amazon.com'` - `amazon.com` のメディアサーバーからの画像のみを許可
+3. `pathname: '/images/M/MV5*'` - パスが `/images/M/MV5` で始まる画像のみを許可（ワイルドカード * を使用）
+
+IMDb の画像 URL は通常このパターンに従っているため、IMDb の映画ポスター画像を表示するために必要となる。
+
+IMDb（Internet Movie Database）は、
+映画、テレビ番組、ビデオゲーム、ストリーミングコンテンツなどの情報を提供する世界最大のオンラインデータベースである。
+
+現在、IMDb は Amazon が所有しているため、`amazon.com` のドメインになっている。
+
+### リンク切れの画像
+
+再度、画面を表示させてみる。
+
+DB から取得したレコードから、映画のポスター画像が表示されるようになった。
+
+しかし、画像のリンクが切れていて画像が表示されていないものがいくつかある。
+
+![](/02-hands-on/02-movie-recommendations-app/13_fallback_image_implementation/broken_image_link.png)
+
+このままでは、表示が見づらいので、リンク切れの場合は Fallback 画像を表示させるようにする。
+
+#### 画像への Fallback 対策
+
+**Fallback（フォールバック）**とは、ある機能やコンテンツが正常に読み込まれなかった場合に、
+代わりに表示するコンテンツや処理のことを指す。
+
+`src/components/image-with-fallback.tsx` を作成する。
+
+```bash title="Terminal"
+touch ./src/components/image-with-fallback.tsx
+```
+
+```diff title="src/components/image-with-fallback"
+'use client';
+
+import Image from 'next/image';
+import React, { useState } from 'react';
+
+interface ImageWithFallbackProps {
+  src: string;
+  alt: string;
+  className?: string;
+  [key: string]: unknown;
+}
+
+const ImageWithFallback = (props: ImageWithFallbackProps) => {
+  const { src, alt, ...rest } = props;
+  const [imgSrc, setImgSrc] = useState(src);
+  const [isNoImage, setIsNoImage] = useState(false);
+
+  return (
+    <div className="relative">
+      <Image
+        width={300}
+        height={450}
+        src={imgSrc}
+        alt={alt}
+        {...rest}
+        onError={() => {
+          setImgSrc('/poster/movie_placeholder.webp');
+          setIsNoImage(true);
+        }}
+      />
+      {isNoImage && (
+        <p
+          className="absolute top-44 left-18 text-white/40 text-center"
+          style={{ textShadow: '10px 10px 20px rgba(0, 0, 0, 0.8)' }}
+        >
+          ポスター画像が
+          <br />
+          ありません
+        </p>
+      )}
+    </div>
+  );
+};
+
+export default ImageWithFallback;
+```
+
+MoviePoster コンポーネントを修正して、
+画像を Image で表示させていた箇所を、ImageWithFallback コンポーネントに差し替える。
+
+```diff title="src/components/movie-poster.tsx"
+-import Image from 'next/image';
+ import Link from 'next/link';
+
++import ImageWithFallback from '@/components/image-with-fallback';
+ import { cn } from '@/lib/utils';
+ import { Movie, SimilarMovie } from '@/types';
+
+ function MoviePoster({
+   index,
+   similarityRating,
+   movie,
+   isSimilarity,
+ }: {
+   index?: number;
+   similarityRating?: number;
+   movie: Movie | SimilarMovie;
+   isSimilarity?: boolean;
+ }) {
+   return (
+     <Link
+       key={movie._id}
+       href={`/movie/${movie._id}`}
+       className="flex flex-col items-center justify-center"
+     >
+       <div>
+-        <Image
++        <ImageWithFallback
+-          width={300}
+-          height={450}
+           className={cn(
+-            'object-contain rounded-lg shadow-lg',
++            'object-cover rounded-lg shadow-lg',
+             isSimilarity && '-ml-28 min-w-32 max-w-32',
+-            !isSimilarity && 'min-w-64 max-w-64',
++            !isSimilarity && 'min-w-64 max-w-64 h-96',
+           )}
+           src={movie.Poster}
+           alt={movie.Title}
+         />
+       </div>
+       <div className="relative">
+         {similarityRating && (
+           <div className="absolute -left-12 w-14 h-14 flex items-center justify-center bottom-0 right-0 bg-orange-300 bg-opacity-90 p-2 rounded-full m-5 font-bold">
+             {similarityRating}%
+           </div>
+         )}
+
+         {index && (
+           <div className="absolute text-white/40 -top-48 left-8 text-9xl font-extrabold drop-shadow-[0_1.2px_1.2px_rgba(0,0,0,0.2)]">
+             {index}
+           </div>
+         )}
+       </div>
+
+       <div className="px-4 py-2">
+         <p
+           className={cn(
+             'text-lg font-semibold line-clamp-1',
+             isSimilarity && 'w-32',
+             !isSimilarity && 'min-w-64 max-w-64',
+           )}
+         >
+           {movie.Title}
+         </p>
+         <p className="text-gray-500 line-clamp-1">{movie.Genre}</p>
+       </div>
+     </Link>
+   );
+ }
+
+ export default MoviePoster;
+```
+
+これで画像がない場合に、Fallback 画像が表示されるようになった。
+
+![](/02-hands-on/02-movie-recommendations-app/13_fallback_image_implementation/fallback_placeholder_when_image_link_was_broken.png)
+
+コミットを行う。
+
+```bash title="Terminal"
+git add .
+git commit -m '13. Fallback Image Implementation'
+git push
+```

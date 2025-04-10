@@ -1,0 +1,117 @@
+---
+title: 07. 検索結果ページ
+description: Search Term Page
+icon: SearchCheck
+---
+
+ヘッダに検索フォームの設置はできたが、検索を実行するとエラーになってしまう。
+
+<img
+  src="/02-hands-on/02-movie-recommendations-app/07_search_term_page/search_but_not_found_page.webp"
+  alt=""
+/>
+
+これは、検索キーワード（searchTerm）を取得して、`/search/検索キーワード` のページに遷移するが、
+まだ App Router でルーティング、つまりページを作っていないため、発生している。
+
+```tsx title="SearchInput コンポーネントの handleSubmit() 関数（抜粋）"
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const searchTerm = formData.get('searchTerm') as string;
+
+    if (searchTerm) {
+      router.push(`/search/${encodeURIComponent(searchTerm)}`);
+    }
+  };
+```
+
+`src/app/search/[term]/page.tsx` を作成する。
+
+```bash title="Terminal"
+mkdir ./src/app/search
+mkdir ./src/app/search/\[term\]
+touch ./src/app/search/\[term\]/page.tsx
+```
+
+```tsx title="src/app/search/[term]/page.tsx"
+import MoviePoster from '@/components/movie-poster';
+import { mockMovies } from '@/data/movie-mock-data';
+
+async function SearchTermPage({
+  params: { term },
+}: {
+  params: {
+    term: string;
+  };
+}) {
+  const decodedTerm = decodeURIComponent(term);
+
+  const similarMovies = mockMovies.filter(
+    (movie) =>
+      movie.Title.toLowerCase().includes(decodedTerm.toLowerCase()) ||
+      movie.Genre.toLowerCase().includes(decodedTerm.toLowerCase()),
+  );
+
+  return (
+    <div className="flex flex-col items-center justify-center p-20 pt-10">
+      <h1 className="mb-10 text-xl text-gray-100">
+        検索結果: 「{decodedTerm}」 にもとづくおすすめ映画
+      </h1>
+
+      {similarMovies.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10">
+          {similarMovies.map((movie, i) => (
+            <div
+              className="flex space-x-2 relative"
+              key={movie._id}
+            >
+              <p className="absolute flex items-center justify-center top-6 left-10 text-white font-extrabold text-xl z-40 rounded-full bg-indigo-500/80 w-10 h-10">
+                {i + 1}
+              </p>
+
+              <MoviePoster
+                key={movie._id}
+                movie={movie}
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-gray-800/60 text-center">
+          <p className="text-xl">検索結果が見つかりませんでした</p>
+          <p className="mt-2">別のキーワードで検索してみてください</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default SearchTermPage;
+```
+
+「イン」で検索してみる。２件ヒットした。
+
+![](/02-hands-on/02-movie-recommendations-app/07_search_term_page/search_term_with_in.png)
+
+「アクション」で検索してみる。４件ヒットした。
+
+![](/02-hands-on/02-movie-recommendations-app/07_search_term_page/search_term_with_action.png)
+
+「サイエンス」で検索してみる。５件ヒットした。
+
+![](/02-hands-on/02-movie-recommendations-app/07_search_term_page/search_term_with_science.png)
+
+「あ」で検索してみる。
+
+![](/02-hands-on/02-movie-recommendations-app/07_search_term_page/search_term_with_japanese_a.png)
+
+動的にモックデータをフィルタリングした結果を表示できるようになった。
+
+コミットを行う。
+
+```bash title="Terminal"
+git add .
+git commit -m '07. Search Term Page'
+git push
+```

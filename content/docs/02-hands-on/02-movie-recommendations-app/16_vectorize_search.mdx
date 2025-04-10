@@ -1,0 +1,190 @@
+---
+title: 16. Vectorize Search
+description: ベクトル化検索
+icon: Replace
+---
+
+### Vector Search と Vectorize Search
+
+先ほどは、おすすめ映画をベクトル検索（Vector Search）を行なって実現した。
+
+今から、検索結果ページに、ベクトル化検索（Vectorize Search）処理を追加して、検索キーワードによる検索を実現していく。
+
+Vector Search（ベクトル検索）と Vectorize Search（ベクトル化検索）は、似ているようで意味が異なる。
+
+以下で、Vector Search と Vectorize Search の内容を比較する。
+
+#### Vector Search（ベクトル検索）
+
+- すでにベクトル化されたデータに対して検索を行うこと
+- データベース内の既存のベクトル表現を使って類似性検索を実行する
+- 「ベクトル空間内での検索」という意味合い
+
+#### Vectorize Search（ベクトル化検索）
+
+- 検索クエリや対象をその場でベクトル化してから検索を行うプロセス全体
+- 「ベクトル化してから検索する」という動作の流れ
+- 検索前の変換プロセスを含む広い意味
+
+実際の使用例では、「Vector Search」がより一般的な用語として使われることが多い。
+「Vectorize Search」は、特にテキストや画像などの非構造化データをその場でベクトル化して検索する文脈で使われることがある。
+
+では、実際に SearchTermPage を修正して、ベクトル化検索処理を追加する。
+
+```diff title="src/app/search/[term]/page.tsx"
+ import MoviePoster from '@/components/movie-poster';
+-import { mockMovies } from '@/data/movie-mock-data';
++import db from '@/lib/db';
++
++import type { Movie } from '@/types';
+
+ async function SearchTermPage({
+   params: { term },
+ }: {
+   params: {
+     term: string;
+   };
+ }) {
+   const decodedTerm = decodeURIComponent(term);
+
+-  const similarMovies = mockMovies.filter(
+-    (movie) =>
+-      movie.Title.toLowerCase().includes(decodedTerm.toLowerCase()) ||
+-      movie.Genre.toLowerCase().includes(decodedTerm.toLowerCase()),
+-  );
++  const movies = db.collection('movies');
++
++  const similarMovies = (await movies
++    .find(
++      {},
++      {
++        vectorize: term,
++        limit: 10,
++      },
++    )
++    .toArray()) as Movie[];
+
+   return (
+     <div className="flex flex-col items-center justify-center p-20 pt-10">
+       <h1 className="mb-10 text-xl text-gray-100">
+         検索結果: 「{decodedTerm}」 にもとづくおすすめ映画
+       </h1>
+
+       {similarMovies.length > 0 ? (
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10">
+           {similarMovies.map((movie, i) => (
+             <div
+               className="flex space-x-2 relative"
+               key={movie._id}
+             >
+               <p className="absolute flex items-center justify-center top-6 left-10 text-white font-extrabold text-xl z-40 rounded-full bg-indigo-500/80 w-10 h-10">
+                 {i + 1}
+               </p>
+
+               <MoviePoster
+                 key={movie._id}
+                 movie={movie}
+               />
+             </div>
+           ))}
+         </div>
+       ) : (
+         <div className="text-gray-800/60 text-center">
+           <p className="text-xl">検索結果が見つかりませんでした</p>
+           <p className="mt-2">別のキーワードで検索してみてください</p>
+         </div>
+       )}
+     </div>
+   );
+ }
+
+ export default SearchTermPage;
+```
+
+追加したベクトル化検索処理部分を確認する。
+
+```tsx title="ベクトル化検索処理部分"
+  const similarMovies = (await movies
+    .find(
+      {},
+      {
+        vectorize: term,
+        limit: 10,
+      },
+    )
+    .toArray()) as Movie[];
+```
+
+### ベクトル化の自動処理
+
+通常、ベクトル検索では数値配列（例: [0.234, 0.567, 0.891, ...]）で表現される「ベクトル埋め込み」を直接渡す必要がある。
+
+しかし、Astra DB では「vectorize」というキーワードを使用することで、テキスト（例: "space films"）を直接渡すことが可能になっている。
+
+Astra DB と OpenAI Embeddings の統合設定を行なったことにより、Astra DB 内部で OpenAI のモデルを利用し、テキストを自動的にベクトル化する。
+
+### 検索クエリの実行
+
+ベクトル化された検索語句をもとに、データベース内の映画データと類似度計算を行う。
+結果として、類似度（Similarity Score）が高い映画が返されることになる。
+
+### ベクトル化を自動化させない場合
+
+作成するアプリケーションによっては、カスタムでベクトル埋め込みを行ないたい場合もある。
+
+その場合は、OpenAI Embeddings API を直接利用して、データのベクトル化を行なうこともできる。
+
+例えば、コードにすると以下のようになる。
+
+```ts title=""
+async function embedding(prompt: string) {
+  const response = await fetch("https://api.openai.com/v1/embeddings", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      input: prompt,
+      model: "text-embedding-3-large",
+      dimensions: 512,
+    }),
+  });
+
+  const result = await response.json();
+
+  return result.data[0].embedding;
+}
+```
+
+### 検索の動作確認
+
+キーワードを「space」で検索してみる。
+
+プロットが宇宙に関係する映画が表示されるのが確認できる。
+
+![](/02-hands-on/02-movie-recommendations-app/16_vectorize_search/search_term_with_space.png)
+
+プロットの関連性で「君の名は」や「グッド・ウィル・ハンティング」が抽出されるのが興味深い。
+
+![](/02-hands-on/02-movie-recommendations-app/16_vectorize_search/movie_your_name.png)
+
+今度は「super hero」で検索してみる。期待通り、ヒーローものが抽出された。
+
+![](/02-hands-on/02-movie-recommendations-app/16_vectorize_search/search_term_with_super_hero.png)
+
+### まとめ
+
+この仕組みにより、ユーザーは単純なテキスト入力だけで高度な類似度計算を利用した検索結果を得ることができる。
+
+Astra DB による Embedding Provider との統合機能を活用することで、開発者は複雑な処理を意識せずに柔軟な検索機能の実現が可能となる。
+
+---
+
+コミットを行う。
+
+```bash title="Terminal"
+git add .
+git commit -m '16. Vectorize Search'
+git push
+```
