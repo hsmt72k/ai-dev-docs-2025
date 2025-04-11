@@ -1,0 +1,355 @@
+---
+title: API とバックエンド設計
+description: API and Backend Design
+icon: MarsStroke
+---
+
+## API とバックエンド設計：総合ガイド
+
+### RESTful 設計
+
+RESTful APIは、リソース指向のアーキテクチャに基づいています。
+
+#### 基本原則
+- リソースベース（ユーザー、商品など）のURL設計
+- HTTPメソッド（GET, POST, PUT, DELETE）を活用
+- ステートレス通信
+- 統一インターフェース
+
+#### 特徴
+- シンプルで直感的
+- キャッシュが容易
+- 広く採用されている標準
+- スケーラビリティの高さ
+
+#### コード例
+```
+GET    /users         # ユーザー一覧取得
+GET    /users/123     # 特定ユーザー取得
+POST   /users         # 新規ユーザー作成
+PUT    /users/123     # ユーザー更新
+DELETE /users/123     # ユーザー削除
+```
+
+#### HATEOAS の例
+HATEOAS（Hypermedia as the Engine of Application State）は、クライアントがAPIを操作するために必要なリンクを動的に発見できるようにする仕組みです。
+
+```json tile="HATEOAS の例"
+{
+  "id": 123,
+  "name": "山田太郎",
+  "email": "yamada@example.com",
+  "_links": {
+    "self": { "href": "/users/123" },
+    "posts": { "href": "/users/123/posts" },
+    "update": { "href": "/users/123", "method": "PUT" },
+    "delete": { "href": "/users/123", "method": "DELETE" }
+  }
+}
+```
+
+#### 設計原則とベストプラクティス
+- 名詞ベースのエンドポイント設計
+- 階層的関係を URL 構造で表現（例: `/users/123/posts`）
+- HTTP ステータスコードの適切な使用
+- HATEOAS によるナビゲーション情報の提供
+
+### GraphQL
+
+GraphQLは、必要なデータだけを柔軟に取得できるクエリ言語です。
+
+#### 基本原則
+- 単一エンドポイント
+- クライアント側でデータ要求を定義
+- 型システムによるスキーマ定義
+- リゾルバー関数によるデータ取得ロジックの分離
+
+#### 特徴
+- オーバーフェッチ・アンダーフェッチ問題の解消
+- 複数リソースの一括取得
+- 強力な開発者ツール
+- 型安全性
+
+#### スキーマ定義の例
+```graphql title="スキーマ定義"
+type User {
+  id: ID!
+  name: String!
+  email: String!
+  posts: [Post!]
+}
+
+type Post {
+  id: ID!
+  title: String!
+  content: String!
+  author: User!
+  comments: [Comment!]
+}
+
+type Comment {
+  id: ID!
+  body: String!
+  author: User!
+}
+
+type Query {
+  user(id: ID!): User
+  users: [User!]!
+  post(id: ID!): Post
+}
+
+type Mutation {
+  createUser(name: String!, email: String!): User!
+  updateUser(id: ID!, name: String, email: String): User
+}
+```
+
+#### クエリ例
+```graphql title="クエリ例"
+query {
+  user(id: "123") {
+    name
+    email
+    posts {
+      title
+      comments {
+        body
+      }
+    }
+  }
+}
+```
+
+#### 主要コンポーネント
+- **スキーマ**: API の型定義を記述
+- **リゾルバー**: データ取得ロジックの実装
+- **クエリ**: データ取得のリクエスト
+- **ミューテーション**: データ変更のリクエスト
+- **サブスクリプション**: リアルタイムデータ更新
+
+### tRPC
+
+tRPCは、TypeScriptを活用したエンドツーエンドの型安全なAPI構築フレームワークです。
+
+#### 基本原則
+- エンドツーエンドの型安全性
+- RPCスタイルの関数呼び出し
+- フロントエンドとバックエンドの統合
+- TypeScript の型推論を最大限活用
+
+#### 特徴
+- 型推論による開発効率向上
+- バンドルサイズが小さい
+- フレームワークに依存しない設計
+- APIスキーマ生成が不要
+
+#### コード例と入力バリデーション
+```typescript title="エンドツーエンドの入力バリデーション"
+import { z } from 'zod';
+import { router, publicProcedure } from './trpc';
+
+// 入力スキーマの定義
+const createUserSchema = z.object({
+  name: z.string().min(2).max(50),
+  email: z.string().email(),
+  age: z.number().int().positive().optional(),
+  role: z.enum(['admin', 'user', 'guest']).default('user')
+});
+
+// サーバー側
+export const appRouter = router({
+  // シンプルな例
+  getUser: publicProcedure
+    .input(z.string())
+    .query(async ({ input }) => {
+      return { id: input, name: "ユーザー" };
+    }),
+
+  // 複雑な入力バリデーションの例
+  createUser: publicProcedure
+    .input(createUserSchema)
+    .mutation(async ({ input }) => {
+      // zodによってバリデーション済みなので安全に使用可能
+      const { name, email, age, role } = input;
+
+      // ユーザー作成ロジック
+      return { id: '123', name, email, age, role };
+    }),
+});
+
+// クライアント側
+const user = await trpc.getUser.query("123");
+const newUser = await trpc.createUser.mutate({
+  name: "山田太郎",
+  email: "yamada@example.com",
+  age: 30
+});
+```
+
+#### アーキテクチャ要素
+- **ルーター**: API エンドポイントの定義
+- **プロシージャ**: 個々の API 関数
+- **入力バリデーション**: zod などによる型安全な入力検証
+- **ミドルウェア**: リクエスト処理パイプラインの拡張
+
+### サーバーレス API 構築
+
+サーバーレスは、インフラストラクチャ管理からの解放と自動スケーリングを特徴とします。
+
+#### 基本原則
+- 関数単位の実行（FaaS）
+- イベント駆動型アーキテクチャ
+- マネージドサービスの活用
+- マイクロサービス的アプローチ
+
+#### 特徴
+- インフラ管理不要
+- 使用量ベースの課金
+- 自動スケーリング
+- 高可用性
+
+#### 主要サービス
+- AWS Lambda + API Gateway
+- Azure Functions
+- Google Cloud Functions
+- Netlify Functions
+- Vercel Serverless Functions
+
+#### コード例（AWS Lambda）
+```js title="AWS Lambda"
+exports.handler = async (event) => {
+  const userId = event.pathParameters.userId;
+  // ユーザーデータ取得ロジック
+  return {
+    statusCode: 200,
+    body: JSON.stringify({ id: userId, name: "ユーザー名" })
+  };
+};
+```
+
+#### コールドスタート問題と対策
+
+コールドスタートとは、関数が初めて呼び出されるとき、または一定時間アイドル状態だった後に呼び出されるときに発生する遅延のことです。
+
+##### 対策例
+
+1. **プロビジョニングされた同時実行**
+   ```js title="AWS CloudFormation/SAM テンプレートの例"
+   Resources:
+     MyFunction:
+       Type: AWS::Serverless::Function
+       Properties:
+         Handler: index.handler
+         Runtime: nodejs18.x
+         ProvisionedConcurrencyConfig:
+           ProvisionedConcurrentExecutions: 5
+   ```
+
+2. **ウォームアップ戦略**
+   ```js title="定期的に関数を呼び出すスケジュールイベント"
+   exports.warmup = async (event) => {
+     console.log('ウォームアップ実行中');
+
+     // 実際の処理は行わずに終了
+     if (event.source === 'warmup') {
+       return { statusCode: 200, body: 'Warmed' };
+     }
+
+     // 通常の処理
+     return actualHandler(event);
+   };
+   ```
+
+3. **Keep-Alive と接続プーリング**
+   ```js title="グローバルスコープでの接続の再利用"
+   let dbConnection = null;
+
+   async function getConnection() {
+     if (!dbConnection) {
+       dbConnection = await createConnection();
+     } else if (!dbConnection.isConnected) {
+       await dbConnection.connect();
+     }
+     return dbConnection;
+   }
+
+   exports.handler = async (event) => {
+     const db = await getConnection();
+     // DB処理を実行
+     // ...
+   };
+   ```
+
+4. **関数の最適化**
+   - 依存関係の最小化
+   - コードの分割と最適化
+   - 軽量ランタイムの選択
+
+#### 設計上の考慮点
+- コールドスタート問題への対応
+- ステートレス設計の徹底
+- 関数の粒度とアーキテクチャ設計
+- API Gateway とのインテグレーション
+- タイムアウト設定の適切な管理
+
+### 設計選択のガイド
+
+#### アプローチ比較
+
+| 特性 | RESTful | GraphQL | tRPC | サーバーレス |
+|------|---------|---------|------|------------|
+| 学習曲線 | 低 | 中～高 | 中（TS必須） | 低～中 |
+| クライアント実装の複雑さ | 低 | 中 | 低 | 低 |
+| バックエンド実装の複雑さ | 低 | 中～高 | 低 | 低～中 |
+| スキーマ/API定義 | OpenAPI など | GraphQLスキーマ | TypeScript型 | プロバイダー依存 |
+| オーバーフェッチ対策 | 限定的 | 優れている | 限定的 | 限定的 |
+| TypeScript統合 | 外部ツール必要 | 外部ツール必要 | ネイティブ | 外部ツール必要 |
+| エコシステム | 非常に大きい | 大きい | 成長中 | サービス毎に異なる |
+| リアルタイム対応 | 外部技術必要 | サブスクリプション | 外部技術必要 | WebSocketなど別途必要 |
+
+#### 選択のポイント
+
+##### RESTful が最適な場合
+- シンプルさと互換性が重要な場合
+- 広く採用された標準に従いたい場合
+- キャッシュを最大限活用したい場合
+- 多様なクライアントをサポートする必要がある場合
+
+##### GraphQL が最適な場合
+- 複雑なデータ要件やクライアント主導の柔軟性が必要な場合
+- モバイルアプリでネットワーク効率を重視する場合
+- 異なるデータソースを統合する必要がある場合
+- スキーマ駆動開発を重視する場合
+
+##### tRPC が最適な場合
+- TypeScriptプロジェクトで型安全性を重視する場合
+- フロントエンドとバックエンドが密接に統合されている場合
+- フルスタックTypeScriptチームがいる場合
+- クライアントコード生成を自動化したい場合
+
+##### サーバーレス が最適な場合
+- インフラ管理の手間を減らしたい場合
+- トラフィック変動が大きい場合
+- 個別の機能ごとに独立したデプロイを行いたい場合
+- 使用量に応じたコスト最適化を図りたい場合
+
+---
+
+### まとめ
+
+API とバックエンド設計の選択は、プロジェクトの要件、チーム構成、技術スタックなどの要因によって大きく左右されます。
+それぞれのアプローチには固有の利点と課題があります。
+
+最適な設計を選ぶために、以下の点を考慮することが重要です。
+
+1. **プロジェクトの規模と複雑さ**
+2. **開発チームの専門知識**
+3. **クライアントアプリケーションの要件**
+4. **パフォーマンスとスケーラビリティの要件**
+5. **将来的な拡張性と保守性**
+
+多くの現代的なシステムでは、単一のアプローチだけでなく、これらの技術を組み合わせたハイブリッドアプローチが採用されることも増えています。
+例えば、RESTful APIをメインとしながら、特定の複雑なデータ取得には GraphQL を使用するといった選択も有効です。
+
+最終的には、技術そのものよりも、その技術がビジネス要件と開発効率にどう貢献するかが重要な判断基準となります。
