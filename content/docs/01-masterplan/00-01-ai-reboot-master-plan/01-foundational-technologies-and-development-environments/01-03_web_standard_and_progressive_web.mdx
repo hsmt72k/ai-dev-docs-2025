@@ -1,0 +1,435 @@
+---
+title: Web 標準とプログレッシブウェブ
+description: Web Standards and Progressive Web
+icon: ChartSpline
+---
+
+## Web標準とプログレッシブウェブ：最新技術の活用ガイド
+
+### 1. Web 標準の基本概念
+
+Web 標準とは、W3C や WHATWG などの標準化団体によって策定された、ウェブ技術の共通仕様です。
+これらの標準に準拠することで、異なるブラウザやデバイス間での一貫した動作や互換性が確保されます。
+最新の Web 標準を活用することで、より高機能で効率的なウェブアプリケーションの開発が可能になります。
+
+### 2. モジュールシステムの進化：CommonJS から ES モジュールへ
+
+#### 2.1 CommonJS
+
+- **起源**: Node.js 向けに開発された、サーバーサイドのモジュールシステム
+- **構文**: `require()` と `module.exports` を使用
+- **特徴**: 動的に読み込み可能、同期的な処理
+
+```js title="math.js"
+module.exports = {
+  add: (a, b) => a + b,
+  subtract: (a, b) => a - b
+};
+```
+
+```js title="app.js"
+const math = require('./math');
+console.log(math.add(5, 3)); // 8
+```
+
+#### 2.2 ESモジュール (ECMAScript Modules)
+
+- **起源**: ECMAScript 2015 (ES6) で標準化されたブラウザ対応のモジュールシステム
+- **構文**: importとexportを使用
+- **特徴**: 静的解析可能、非同期読み込み、ツリーシェイキング対応
+
+```js title="math.js"
+export const add = (a, b) => a + b;
+export const subtract = (a, b) => a - b;
+```
+
+```js title="app.js"
+import { add } from './math.js';
+console.log(add(5, 3)); // 8
+```
+
+#### 2.3 モダン開発での使い分け
+
+- **ブラウザ環境**: ESモジュールが標準（`<script type="module">` でロード）
+- **Node.js環境**: 両方をサポート
+  - `.mjs` 拡張子または package.json に `"type": "module"` を指定で ES モジュール
+  - `.cjs` 拡張子または package.json に `"type": "commonjs"` （デフォルト）で CommonJS
+- **最新トレンド**: ESモジュールへの統一の流れ（ツールチェーンとの互換性の向上）
+
+### 3. 最新 WebAPI とその活用
+
+#### 3.1 Fetch API
+
+- **概要: XMLHttpRequestの改良版として設計された非同期通信API
+- **特徴: Promiseベース、JSONの簡易処理、リクエスト/レスポンスの抽象化
+
+```js title="データ取得の基本パターン"
+fetch('https://api.example.com/data')
+  .then(response => {
+    if (!response.ok) throw new Error('Network response was not ok');
+    return response.json();
+  })
+  .then(data => console.log(data))
+  .catch(error => console.error('Fetch error:', error));
+```
+
+```js title="POSTリクエスト
+fetch('https://api.example.com/submit', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({ name: 'User', message: 'Hello' })
+});
+```
+
+```js title="async/awaitでの利用"
+async function getData() {
+  try {
+    const response = await fetch('https://api.example.com/data');
+    if (!response.ok) throw new Error('Network response was not ok');
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Fetch error:', error);
+  }
+}
+```
+
+#### 3.2 Streams API
+
+- **概要**: 大量のデータを小さな単位で処理するためのAPI
+- **種類**:
+  - **ReadableStream**: データの読み取り（ファイルなど）
+  - **WritableStream**: データの書き込み先
+  - **TransformStream**: データの変換処理
+- **利点**: メモリ効率の向上、早期処理開始、段階的表示
+
+```js title="テキストファイルを行ごとに処理"
+async function processLargeTextFile(url) {
+  const response = await fetch(url);
+  const reader = response.body
+    .pipeThrough(new TextDecoderStream())
+    .pipeThrough(new TransformStream({
+      transform(chunk, controller) {
+        // 行に分割
+        const lines = chunk.split('\n');
+        lines.forEach(line => controller.enqueue(line));
+      }
+    }));
+
+  const readableStreamDefaultReader = reader.getReader();
+
+  // 行ごとの処理
+  while (true) {
+    const { done, value } = await readableStreamDefaultReader.read();
+    if (done) break;
+    console.log('Processing line:', value);
+    // 各行に対する処理をここに
+  }
+}
+```
+
+```js title="レスポンスのストリーミング"
+async function streamProcessedResponse() {
+  const response = await fetch('https://api.example.com/large-data');
+  const reader = response.body.getReader();
+
+  // プログレス表示用のDOM要素
+  const progress = document.getElementById('progress');
+
+  let receivedLength = 0;
+  const contentLength = +response.headers.get('Content-Length');
+
+  while(true) {
+    const {done, value} = await reader.read();
+    if (done) break;
+
+    receivedLength += value.length;
+    progress.textContent = `受信済み: ${receivedLength} / ${contentLength}`;
+
+    // 受信したデータを即時処理
+    processChunk(value);
+  }
+}
+```
+
+#### 3.3 Web Workers
+
+- **概要**: メインスレッドとは別の背景スレッドでJavaScriptを実行する仕組み
+- **種類**:
+  - **Dedicated Workers**: 単一のスクリプトから利用
+  - **Shared Workers**: 複数のスクリプト間で共有
+  - **Service Workers**: オフライン対応や通知のためのプロキシサーバー
+- **利点**: UI 遅延の防止、マルチコア活用、背景処理
+
+```js title="メインスクリプト (main.js)"
+const worker = new Worker('worker.js');
+
+// データをワーカーに送信
+worker.postMessage({
+  command: 'process',
+  data: largeDataArray
+});
+
+// ワーカーからの結果を受信
+worker.onmessage = function(e) {
+  console.log('処理結果:', e.data.result);
+  // UIの更新などをここで
+};
+```
+
+```js title="ワーカースクリプト (worker.js)"
+self.onmessage = function(e) {
+  if (e.data.command === 'process') {
+    // 重い処理を実行
+    const result = processData(e.data.data);
+
+    // 結果を返信
+    self.postMessage({
+      result: result
+    });
+  }
+};
+
+function processData(data) {
+  // CPU負荷の高い処理
+  // 例: 大量のデータの変換、計算など
+  return transformedData;
+}
+```
+
+#### 3.4 Intersection Observer API
+
+- **概要**: 要素の表示状態を効率的に監視するAPI
+- **用途**: 無限スクロール、遅延読み込み、アニメーション
+
+```js title="画像の遅延読み込み"
+const lazyImages = document.querySelectorAll('img.lazy');
+
+const imageObserver = new IntersectionObserver((entries, observer) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const img = entry.target;
+      img.src = img.dataset.src; // data-src属性から実際のURLを取得
+      img.classList.remove('lazy');
+      observer.unobserve(img); // 監視を解除
+    }
+  });
+});
+
+lazyImages.forEach(img => {
+  imageObserver.observe(img);
+});
+```
+
+### 4. プログレッシブウェブアプリケーション (PWA)
+
+#### 4.1 PWA の基本概念
+
+- **定義**: ウェブ技術で構築しながらネイティブアプリのような体験を提供するアプリケーション
+- **特徴**: オフライン対応、インストール可能、通知機能、背景同期
+- **利点**: 複数プラットフォーム対応、配布の容易さ、検索エンジン最適化、更新の即時性
+
+#### 4.2 Service Workers
+
+- **役割**: PWA の中核技術、ネットワークリクエストの仲介
+- **機能**:
+  - **キャッシュ管理**: オフライン対応のための資源管理
+  - **プッシュ通知**: 背景での通知受信
+  - **バックグラウンド同期**: オフライン時の操作を後で同期
+
+```js title="service-worker.js"
+const CACHE_NAME = 'my-app-v1';
+const urlsToCache = [
+  '/',
+  '/styles/main.css',
+  '/scripts/main.js',
+  '/images/logo.png'
+];
+
+// インストール時にリソースをキャッシュ
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then(cache => cache.addAll(urlsToCache))
+  );
+});
+
+// フェッチリクエストの処理
+self.addEventListener('fetch', event => {
+  event.respondWith(
+    caches.match(event.request)
+      .then(response => {
+        // キャッシュにあればそれを返す
+        if (response) {
+          return response;
+        }
+
+        // なければネットワークにフェッチしてキャッシュに追加
+        return fetch(event.request)
+          .then(response => {
+            // 有効なレスポンスかチェック
+            if (!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
+
+            // レスポンスをコピーしてキャッシュに保存
+            const responseToCache = response.clone();
+            caches.open(CACHE_NAME)
+              .then(cache => {
+                cache.put(event.request, responseToCache);
+              });
+
+            return response;
+          });
+      })
+  );
+});
+```
+
+#### 4.3 Web App Manifest
+
+- **概要: アプリの情報を定義するJSONファイル
+- **役割: インストール情報、アイコン、テーマカラーなどの定義
+
+```json title="Web App Manifest"
+{
+  "name": "My Progressive Web App",
+  "short_name": "MyPWA",
+  "start_url": "/index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#2196f3",
+  "icons": [
+    {
+      "src": "/images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
+```
+
+### 5. その他の重要な Web API
+
+#### 5.1 WebAssembly (Wasm)
+
+- **概要**: 高性能なバイトコードをブラウザで実行するための技術
+- **用途**: 計算負荷の高い処理、ゲーム、C/C++/Rust などのコードをブラウザで実行
+- **利点**: ネイティブに近い速度、多言語対応
+
+#### 5.2 WebRTC
+
+- **概要**: リアルタイム通信を可能にするAPI群
+- **機能**: ビデオチャット、音声通話、P2Pファイル共有
+- **構成要素**: MediaStream API、RTCPeerConnection、RTCDataChannel
+
+#### 5.3 Web Animations API
+
+- **概要**: JavaScriptによるアニメーション制御のための標準API
+- **特徴**: 宣言的定義、タイミング制御、順序管理
+
+#### 5.4 Web Components
+
+- **概要**: 再利用可能なUIコンポーネントを作成するための標準
+- **要素**: Custom Elements、Shadow DOM、HTML Templates、ES Modules
+
+### 6. 実装戦略とベストプラクティス
+
+####6.1 機能検出
+
+- **概念**: ブラウザが特定の機能をサポートしているかを動的に検出
+
+```js title="Service Worker のサポート確認"
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/service-worker.js');
+}
+
+// Fetch API のサポート確認
+if ('fetch' in window) {
+  // Fetch APIを使用
+} else {
+  // XMLHttpRequestを代替として使用
+}
+```
+
+#### 6.2 段階的機能強化
+
+- **概念**: 基本機能から始めて、利用可能な高度な機能を段階的に追加
+
+```js title="基本的なフォーム送信（すべてのブラウザで動作）"
+const form = document.querySelector('form');
+
+// 段階的機能強化
+if ('fetch' in window) {
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    try {
+      const formData = new FormData(form);
+      const response = await fetch('/api/submit', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (response.ok) {
+        showSuccess();
+      } else {
+        showError();
+      }
+    } catch (error) {
+      console.error('Error:', error);
+      showError();
+    }
+  });
+}
+// フェッチがサポートされていない場合は、通常のフォーム送信として処理
+```
+
+#### 6.3 モバイルファースト設計
+
+- **原則**: モバイルデバイスを最初に設計し、より大きな画面サイズに拡張
+- **実装**: レスポンシブデザイン、パフォーマンス最適化、タッチ対応UI
+
+#### 6.4 オフライン優先戦略
+
+- **概念**: オフラインでも動作することを前提とした設計
+- **アプローチ**:
+  - 主要リソースをキャッシュ
+  - オフライン状態での操作をキュー
+  - ネットワーク復帰時の処理設計
+
+### 7. 実際の開発ワークフロー統合
+
+#### 7.1 開発環境での設定
+
+- **モジュールバンドラー**: Webpack、Rollup、Vite などとの統合
+- **コード変換**: Babel、TypeScript による最新構文の変換
+- **代替コード戦略**: 必要な機能のみを含める最適化
+
+#### 7.2 テストとデバッグ
+
+- **異なるブラウザでのテスト**: 複数環境での動作検証
+- **Lighthouse**: パフォーマンス、アクセシビリティ、PWA対応度の評価
+- **開発者ツール**: Service Worker、ネットワーク、パフォーマンスの分析
+
+#### 7.3 段階的デプロイメント
+
+- **機能フラグ**: 新しい Web API の段階的導入
+- **比較テスト**: 異なる実装手法の効果測定
+- **利用状況分析**: 実際のユーザー環境での挙動追跡
+
+### 8. まとめと今後の展望
+
+最新の Web 標準とプログレッシブウェブ技術は、より高機能で効率的なウェブアプリケーション開発を可能にします。
+ES モジュールの採用、Streams API による効率的なデータ処理、Web Workers による並列処理、Service Workers によるオフライン対応など、
+これらの技術を組み合わせることで、従来のネイティブアプリに匹敵する体験をウェブ上で提供できるようになっています。
+
+今後は、WebGPU、WebXR、Web Neural Network API など、さらに高度な機能が標準化されていくでしょう。
+これらの技術を適切に取り入れながら、常にパフォーマンスとアクセシビリティを意識したウェブアプリケーション開発を進めていくことが重要です。
