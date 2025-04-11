@@ -30,28 +30,29 @@ icon: StepForward
 
 #### コンテナ vs 仮想マシン
 
-{/* https://fumadocs.vercel.app/docs/ui/mermaid */}
 import { Mermaid } from "@/components/mdx/mermaid";
 
 <Mermaid
-  chart="
-graph TD;
-subgraph AA [コンテナ]
-A1[アプリ 1] --> C1[コンテナランタイム];
-A2[アプリ 2] --> C1;
-A3[アプリ 3] --> C1;
-C1 --> D[ホスト OS];
-D --> H[ハードウェア];
-end
-subgraph BB [仮想マシン]
-V1[アプリ 1] --> O1[ゲスト OS 1];
-V2[アプリ 2] --> O2[ゲスト OS 2];
-V3[アプリ 3] --> O3[ゲスト OS 3];
-O1 --> HV[ハイパーバイザー];
-O2 --> HV;
-O3 --> HV;
-HV --> H2[ハードウェア];
-end"
+  chart={`
+flowchart TD
+    subgraph AA ["コンテナ"]
+    A1[アプリ 1] --> C1[コンテナランタイム]
+    A2[アプリ 2] --> C1
+    A3[アプリ 3] --> C1
+    C1 --> D[ホスト OS]
+    D --> H[ハードウェア]
+    end
+
+    subgraph BB ["仮想マシン"]
+    V1[アプリ 1] --> O1[ゲスト OS 1]
+    V2[アプリ 2] --> O2[ゲスト OS 2]
+    V3[アプリ 3] --> O3[ゲスト OS 3]
+    O1 --> HV[ハイパーバイザー]
+    O2 --> HV
+    O3 --> HV
+    HV --> H2[ハードウェア]
+    end
+`}
 />
 
 #### コンテナ化のメリット
@@ -219,32 +220,37 @@ Kubernetes（K8s）は複数のコンテナ化されたアプリケーション�
 #### Kubernetes アーキテクチャ図
 
 <Mermaid
-chart="
-graph TD;
-subgraph 'コントロールプレーン'
-API[API サーバー] --> ETCD[etcd];
-S[スケジューラー] --> API;
-CM[コントローラーマネージャー] --> API;
-end
-subgraph 'ワーカーノード 1'
-K1[Kubelet] --> CRI1[コンテナランタイム];
-KP1[Kube-proxy] --> CRI1;
-CRI1 --> P1[Pod 1];
-CRI1 --> P2[Pod 2];
-end
-subgraph 'ワーカーノード 2'
-K2[Kubelet] --> CRI2[コンテナランタイム];
-KP2[Kube-proxy] --> CRI2;
-CRI2 --> P3[Pod 3];
-CRI2 --> P4[Pod 4];
-end
-API --> K1;
-API --> K2;
-API --> KP1;
-API --> KP2;
-subgraph 'ユーザー'
-U[kubectl] --> API;
-end"
+  chart={`
+flowchart TD
+    subgraph cp["コントロールプレーン"]
+    API[API サーバー] --> ETCD[etcd]
+    S[スケジューラー] --> API
+    CM[コントローラーマネージャー] --> API
+    end
+
+    subgraph wn1["ワーカーノード 1"]
+    K1[Kubelet] --> CRI1[コンテナランタイム]
+    KP1[Kube-proxy] --> CRI1
+    CRI1 --> P1[Pod 1]
+    CRI1 --> P2[Pod 2]
+    end
+
+    subgraph wn2["ワーカーノード 2"]
+    K2[Kubelet] --> CRI2[コンテナランタイム]
+    KP2[Kube-proxy] --> CRI2
+    CRI2 --> P3[Pod 3]
+    CRI2 --> P4[Pod 4]
+    end
+
+    API --> K1
+    API --> K2
+    API --> KP1
+    API --> KP2
+
+    subgraph user["ユーザー"]
+    U[kubectl] --> API
+    end
+`}
 />
 
 #### Kubernetes マニフェストの例
@@ -490,34 +496,41 @@ helm rollback ai-prod 1
 
 <div className='max-w-98'>
 <Mermaid
-chart="
-flowchart TD;
-subgraph '開発'
-direction LR;
-A[コード変更] --> B[Git Push];
-end
-subgraph 'CI パイプライン'
-direction LR;
-C[自動テスト] --> D[静的コード解析];
-D --> E[Docker イメージビルド];
-E --> F[脆弱性スキャン];
-F --> G[イメージタグ付け];
-G --> H[イメージレジストリ];
-end
-subgraph 'CD パイプライン'
-direction LR;
-I[デプロイマニフェスト更新] --> J[GitOps リポジトリ];
-J --> K[ArgoCD/Flux];
-K --> L[Kubernetes クラスタ];
-end
-subgraph 'モニタリング'
-direction LR;
-M[Prometheus] --> N[アラート];
-M --> O[Grafana ダッシュボード];
-end
-B --> C;
-H --> I;
-L --> M;"
+  chart={`
+flowchart TD
+    subgraph dev["開発"]
+    direction LR
+    A[コード変更] --> B[Git Push]
+    end
+
+    B --> C
+
+    subgraph ci["CI パイプライン"]
+    direction LR
+    C[自動テスト] --> D[静的コード解析]
+    D --> E[Docker イメージビルド]
+    E --> F[脆弱性スキャン]
+    F --> G[イメージタグ付け]
+    G --> H[イメージレジストリ]
+    end
+
+    H --> I
+
+    subgraph cd["CD パイプライン"]
+    direction LR
+    I[デプロイマニフェスト更新] --> J[GitOps リポジトリ]
+    J --> K[ArgoCD/Flux]
+    K --> L[Kubernetes クラスタ]
+    end
+
+    L --> M
+
+    subgraph monitoring["モニタリング"]
+    direction LR
+    M[Prometheus] --> N[アラート]
+    M --> O[Grafana ダッシュボード]
+    end
+`}
 />
 </div>
 
@@ -567,21 +580,24 @@ Kubernetesクラスタのセキュリティを強化するための設定です�
 
 #### イメージスキャンパイプラインの図
 
+<div className="max-w-98">
 <Mermaid
-chart="
-flowchart TD;
-A[Docker ビルド] --> B[イメージスキャン];
-B --> C{脆弱性あり?};
-C -->|はい| D[重大度分析];
-C -->|いいえ| E[クリーンイメージ];
-D --> F{重大な脆弱性?};
-F -->|はい| G[ビルド失敗];
-F -->|いいえ| H[警告付きでパス];
-E --> I[イメージ署名];
-H --> I;
-I --> J[レジストリ];
-J --> K[デプロイ];"
+  chart={`
+flowchart TD
+    A[Docker ビルド] --> B[イメージスキャン]
+    B --> C{脆弱性あり?}
+    C -->|はい| D[重大度分析]
+    C -->|いいえ| E[クリーンイメージ]
+    D --> F{重大な脆弱性?}
+    F -->|はい| G[ビルド失敗]
+    F -->|いいえ| H[警告付きでパス]
+    E --> I[イメージ署名]
+    H --> I
+    I --> J[レジストリ]
+    J --> K[デプロイ]
+`}
 />
+</div>
 
 ### ベストプラクティスとアンチパターン
 
@@ -629,27 +645,32 @@ J --> K[デプロイ];"
 #### モニタリングアーキテクチャ
 
 <Mermaid
-chart="
-graph TD;
-subgraph 'Kubernetes クラスタ'
-A[AI アプリケーション] --> B[Service Monitor];
-C[ノードエクスポーター] --> D[Prometheus];
-B --> D;
-E[GPU エクスポーター] --> D;
-end
-D --> F[アラートマネージャー];
-D --> G[Grafana];
-subgraph 'ログ収集'
-A --> H[Fluentd/Fluent Bit];
-H --> I[Elasticsearch];
-I --> J[Kibana];
-end
-subgraph 'トレーシング'
-A --> K[Jaeger エージェント];
-K --> L[Jaeger コレクター];
-L --> M[Jaeger UI];
-end
-F --> N[Slack/PagerDuty];"
+  chart={`
+flowchart TD
+    subgraph k8s["Kubernetes クラスタ"]
+    A[AI アプリケーション] --> B[Service Monitor]
+    C[ノードエクスポーター] --> D[Prometheus]
+    B --> D
+    E[GPU エクスポーター] --> D
+    end
+
+    D --> F[アラートマネージャー]
+    D --> G[Grafana]
+
+    subgraph logging["ログ収集"]
+    A --> H[Fluentd/Fluent Bit]
+    H --> I[Elasticsearch]
+    I --> J[Kibana]
+    end
+
+    subgraph tracing["トレーシング"]
+    A --> K[Jaeger エージェント]
+    K --> L[Jaeger コレクター]
+    L --> M[Jaeger UI]
+    end
+
+    F --> N[Slack/PagerDuty]
+`}
 />
 
 #### 主要なモニタリングメトリクス
@@ -717,22 +738,24 @@ groups:
 クラウドとオンプレミスの両方のメリットを活かすハイブリッドアーキテクチャも選択肢となります。
 
 <Mermaid
-chart="
-graph TD;
-subgraph 'ハイブリッドアーキテクチャ'
-A[Web フロントエンド] --> B[API サーバー];
-B --> C{負荷分散};
-C -->|低レイテンシ要求| D[オンプレミス推論];
-C -->|バッチ処理| E[クラウド推論];
-D --> F[オンプレミス GPU クラスタ];
-E --> G[クラウド ML サービス];
-end
-subgraph 'データフロー'
-H[学習データ] --> I[モデル学習];
-I --> J[モデルアーティファクト];
-J --> F;
-J --> G;
-end"
+  chart={`
+flowchart TD
+    subgraph hybrid["ハイブリッドアーキテクチャ"]
+    A[Web フロントエンド] --> B[API サーバー]
+    B --> C{負荷分散}
+    C -->|低レイテンシ要求| D[オンプレミス推論]
+    C -->|バッチ処理| E[クラウド推論]
+    D --> F[オンプレミス GPU クラスタ]
+    E --> G[クラウド ML サービス]
+    end
+
+    subgraph dataflow["データフロー"]
+    H[学習データ] --> I[モデル学習]
+    I --> J[モデルアーティファクト]
+    J --> F
+    J --> G
+    end
+`}
 />
 
 #### 選定ポイント
