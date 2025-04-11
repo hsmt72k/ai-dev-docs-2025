@@ -1,0 +1,479 @@
+---
+title: Infrastructure as Code (IaC)
+description: Infrastructure as Code (IaC)
+icon: Braces
+---
+
+## Infrastructure as Code (IaC) の基本
+
+Infrastructure as Code（IaC）は、インフラストラクチャの構成をコードとして管理する方法論です。
+手動でのサーバーやネットワークの設定に代わり、テキストファイルを通じてインフラを定義・管理します。
+
+### IaC の主要概念
+
+#### 宣言的アプローチ
+- **何を** 実現したいかを記述（手順ではなく最終状態を定義）
+- インフラの望ましい状態をコードで表現
+- ツールが現状と望ましい状態のギャップを埋める
+
+#### 命令的アプローチ
+- **どのように** 実現するかの手順を記述
+- 実行すべきステップをコードで表現
+- スクリプト実行の順序が重要
+
+### IaC の主なメリット
+
+1. **一貫性と再現性**
+   - 環境間の設定の違いを排除
+   - 同一コードから何度でも同じ環境を再現可能
+
+2. **バージョン管理**
+   - Gitなどでコードとしてインフラ定義を管理
+   - 変更履歴の追跡と監査が容易
+
+3. **自動化とスピード**
+   - デプロイメントの高速化
+   - 手動作業の削減によるヒューマンエラーの防止
+
+4. **スケーラビリティ**
+   - 迅速なスケールアップ/ダウンが可能
+   - リソースの動的な追加・削除
+
+5. **セキュリティとコンプライアンス**
+   - セキュリティポリシーをコードとして実装
+   - コードレビューでセキュリティの検証
+
+## 主要な IaC ツール
+
+### プロビジョニングツール
+
+#### Terraform
+HashiCorp社の提供する、クラウドに依存しないIaCツールです。
+
+```hcl title="AWS EC2インスタンスの定義例"
+provider "aws" {
+  region = "ap-northeast-1"
+}
+
+resource "aws_instance" "web_server" {
+  ami           = "ami-0c3fd0f5d33134a76"
+  instance_type = "t3.micro"
+
+  tags = {
+    Name = "WebServer"
+    Environment = "Production"
+  }
+}
+```
+
+**特徴:**
+- クラウドプロバイダー間で一貫した構文
+- 状態管理機能 (tfstate)
+- プロバイダーシステムによる拡張性
+- HCL (HashiCorp Configuration Language)の使用
+
+#### AWS CloudFormation
+AWSが提供する、AWSリソース専用のIaCサービスです。
+
+```yaml title="CloudFormation YAML テンプレート例"
+Resources:
+  WebServerInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t3.micro
+      ImageId: ami-0c3fd0f5d33134a76
+      Tags:
+        - Key: Name
+          Value: WebServer
+        - Key: Environment
+          Value: Production
+```
+
+**特徴:**
+- AWSリソースに特化
+- JSON/YAML形式でテンプレート作成
+- スタックとしてのライフサイクル管理
+- AWS固有の機能との深い統合
+
+#### Azure Resource Manager (ARM)
+Microsoftが提供する、Azureリソース向けのIaCテンプレートシステムです。
+
+```json
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "resources": [
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2021-03-01",
+      "name": "WebServer",
+      "location": "japaneast",
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "Standard_B1s"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "Canonical",
+            "offer": "UbuntuServer",
+            "sku": "18.04-LTS",
+            "version": "latest"
+          }
+        }
+      }
+    }
+  ]
+}
+```
+
+**特徴:**
+- Azure専用
+- JSON/BICEP形式でのテンプレート
+- Azure Policy との統合
+- リソースグループベースのデプロイ
+
+#### Google Cloud Deployment Manager
+Googleが提供する、Google Cloud Platform向けのIaCサービスです。
+
+```yaml
+resources:
+- name: web-server
+  type: compute.v1.instance
+  properties:
+    machineType: zones/asia-northeast1-a/machineTypes/e2-micro
+    zone: asia-northeast1-a
+    disks:
+    - deviceName: boot
+      type: PERSISTENT
+      boot: true
+      autoDelete: true
+      initializeParams:
+        sourceImage: projects/debian-cloud/global/images/family/debian-10
+    labels:
+      environment: production
+```
+
+**特徴:**
+- GCP専用
+- YAML/Pythonによるテンプレート
+- GCPサービスとの統合
+- デプロイメント単位での管理
+
+### 構成管理ツール
+
+#### Ansible
+シンプルなYAML構文を使用する、エージェントレスの構成管理ツールです。
+
+```yaml title="Web サーバー設定の Playbook 例"
+- name: Setup web server
+  hosts: web_servers
+  become: yes
+  tasks:
+    - name: Install nginx
+      apt:
+        name: nginx
+        state: present
+
+    - name: Start nginx service
+      service:
+        name: nginx
+        state: started
+        enabled: yes
+
+    - name: Copy website files
+      copy:
+        src: /local/path/to/website/
+        dest: /var/www/html/
+        owner: www-data
+        group: www-data
+        mode: '0644'
+```
+
+**特徴:**
+- エージェントレス（SSH経由）
+- YAML形式のPlaybook
+- 豊富な組み込みモジュール
+- 比較的低い学習曲線
+
+#### Chef
+Ruby DSLを使用する、クライアント・サーバーモデルの構成管理ツールです。
+
+```ruby title="Nginx をインストールするためのレシピ例"
+package 'nginx' do
+  action :install
+end
+
+service 'nginx' do
+  action [:enable, :start]
+end
+
+template '/etc/nginx/sites-available/default' do
+  source 'default-site.erb'
+  owner 'root'
+  group 'root'
+  mode '0644'
+  notifies :reload, 'service[nginx]'
+end
+```
+
+**特徴:**
+- クライアント・サーバーアーキテクチャ
+- Ruby DSL
+- 「cookbook」と「recipe」の概念
+- テスト駆動インフラ対応
+
+#### Puppet
+独自の宣言的言語を使用する、成熟した構成管理ツールです。
+
+```puppet title="Nginx をインストールするマニフェスト例"
+package { 'nginx':
+  ensure => installed,
+}
+
+service { 'nginx':
+  ensure => running,
+  enable => true,
+  require => Package['nginx'],
+}
+
+file { '/etc/nginx/sites-available/default':
+  ensure => file,
+  content => template('nginx/default-site.erb'),
+  owner => 'root',
+  group => 'root',
+  mode => '0644',
+  notify => Service['nginx'],
+}
+```
+
+**特徴:**
+- マスター・エージェントモデル
+- 宣言的DSL
+- 「マニフェスト」と「モジュール」の概念
+- 自己修復機能
+
+### CDK (Cloud Development Kit)
+
+CDKはプログラミング言語を使ってクラウドインフラを定義する新しいアプローチです。
+
+#### AWS CDK
+TypeScript、Python、Javaなどのプログラミング言語でAWSリソースを定義します。
+
+```ts title="TypeScript での AWS CDK 例"
+import * as cdk from 'aws-cdk-lib';
+import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import { Construct } from 'constructs';
+
+export class WebServerStack extends cdk.Stack {
+  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+    super(scope, id, props);
+
+    // 新しいEC2インスタンスを作成
+    new ec2.Instance(this, 'WebServer', {
+      instanceType: ec2.InstanceType.of(
+        ec2.InstanceClass.T3,
+        ec2.InstanceSize.MICRO
+      ),
+      machineImage: ec2.MachineImage.latestAmazonLinux(),
+      vpc: new ec2.Vpc(this, 'VPC'),
+      tags: {
+        'Name': 'WebServer',
+        'Environment': 'Production'
+      }
+    });
+  }
+}
+```
+
+**特徴:**
+- 一般的なプログラミング言語の使用
+- 型安全性と自動補完
+- 高レベルの抽象化（コンストラクト）
+- CloudFormationへのコンパイル
+
+## IaC の実践パターン
+
+### イミュータブルインフラストラクチャ
+
+インフラの更新ではなく、新しい環境の作成と置き換えを行うアプローチです。
+
+- **特徴**:
+  - 環境の変更は新しいデプロイメントで実施
+  - 既存環境は変更せず、新環境と置き換え
+  - 「ブルー/グリーン」デプロイメントの実現
+
+- **メリット**:
+  - 予測可能性が高い
+  - ロールバックが容易
+  - テスト環境と本番環境の同一性確保
+
+### ガードレール（ポリシーとコンプライアンス）
+
+インフラの安全性とコンプライアンスを確保するための制約を定義します。
+
+```hcl title="Terraform のポリシー例（Sentinel）"
+import "tfplan"
+
+// すべてのEC2インスタンスが指定されたタグを持つことを確認
+ec2_instances = filter tfplan.resource_changes as _, rc {
+    rc.type is "aws_instance" and
+    (rc.change.actions contains "create" or rc.change.actions is ["update"])
+}
+
+tags_contain_required = rule {
+    all ec2_instances as _, instance {
+        instance.change.after.tags is not null and
+        keys(instance.change.after.tags) contains "Environment" and
+        keys(instance.change.after.tags) contains "Owner"
+    }
+}
+
+main = rule {
+    tags_contain_required
+}
+```
+
+- **ツール例**:
+  - Terraform Sentinel
+  - AWS Config
+  - Azure Policy
+  - Open Policy Agent (OPA)
+
+### 環境の分離とモジュール化
+
+コードの再利用とインフラの一貫性を確保するために、インフラコードをモジュール化します。
+
+```hcl title="Terraform のモジュール使用例"
+module "vpc" {
+  source = "./modules/vpc"
+  cidr_block = "10.0.0.0/16"
+  environment = "production"
+}
+
+module "web_servers" {
+  source = "./modules/web_servers"
+  vpc_id = module.vpc.vpc_id
+  instance_count = 3
+  instance_type = "t3.medium"
+  environment = "production"
+}
+
+module "database" {
+  source = "./modules/database"
+  vpc_id = module.vpc.vpc_id
+  subnet_ids = module.vpc.private_subnet_ids
+  instance_class = "db.t3.large"
+  environment = "production"
+}
+```
+
+- **利点**:
+  - コードの再利用
+  - 標準化の促進
+  - テスト容易性の向上
+  - チームの責任分担
+
+## CI/CD との統合
+
+IaCをCI/CDパイプラインと統合することで、インフラの変更を自動化・標準化します。
+
+```yaml title="GitHub Actions での Terraform CI/CD パイプライン例"
+name: 'Terraform CI/CD'
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v1
+
+    - name: Terraform Init
+      run: terraform init
+
+    - name: Terraform Format
+      run: terraform fmt -check
+
+    - name: Terraform Plan
+      run: terraform plan -out=tfplan
+
+    - name: Terraform Apply
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      run: terraform apply -auto-approve tfplan
+```
+
+### CI/CD の利点
+
+- **自動化されたテスト**:
+  - 静的解析による構文チェック
+  - セキュリティスキャン
+  - ポリシーコンプライアンスチェック
+
+- **承認ワークフロー**:
+  - レビュープロセスの統合
+  - 変更計画の可視化（plan）
+  - 条件付き適用（apply）
+
+- **環境の一貫したデプロイ**:
+  - 開発→テスト→ステージング→本番
+  - 環境ごとの設定の分離
+  - デプロイメントの追跡
+
+## IaC の推進と導入
+
+### 段階的なアプローチ
+
+1. **小規模から始める**:
+   - 単一のサービスや一部の環境から
+   - 新規プロジェクトでの採用
+   - 既存インフラのドキュメント化からスタート
+
+2. **標準化とガバナンス**:
+   - 命名規則の策定
+   - モジュール設計パターンの確立
+   - セキュリティ標準の組み込み
+
+3. **チーム育成と文化の醸成**:
+   - クロスファンクショナルな協力
+   - インフラ変更のコードレビュー
+   - DevOps文化の浸透
+
+### 共通の課題と解決策
+
+1. **状態管理**:
+   - リモート状態ストレージの利用
+   - 状態ロックメカニズムの導入
+   - バックアップと復元プロセスの確立
+
+2. **シークレット管理**:
+   - 機密情報をコードから分離
+   - キー管理サービスの活用（AWS KMS、HashiCorp Vault）
+   - 環境変数または暗号化されたファイルの使用
+
+3. **複雑性の管理**:
+   - モジュール化によるカプセル化
+   - 適切な抽象化レベルの選択
+   - 段階的リファクタリング
+
+---
+
+## まとめ
+
+Infrastructure as Code（IaC）は、現代のクラウドインフラストラクチャ管理において不可欠なアプローチとなっています。
+インフラをコードとして扱うことで、一貫性、再現性、自動化を実現し、より信頼性の高いシステム運用が可能になります。
+
+- **ツール選択**は、使用するクラウドプラットフォーム、チームのスキルセット、環境の複雑さに基づいて行う
+- **宣言的アプローチ**は、長期的なメンテナンス性と意図の明確さを提供
+- **モジュール化と再利用**は、スケーラブルなインフラ管理の鍵
+- **CI/CD との統合**により、安全で自動化されたインフラの進化が実現
+- **段階的な導入**と継続的な改善が、成功への道筋
+
+IaC は単なる技術的ツールではなく、インフラストラクチャ管理の哲学と実践方法の変革です。
+適切に実装することで、より迅速で信頼性の高いソフトウェアデリバリーが可能になり、組織のビジネス価値の創出を加速させることができます。

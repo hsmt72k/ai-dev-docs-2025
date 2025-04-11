@@ -1,0 +1,575 @@
+---
+title: データベース設計
+description: Database Design
+icon: DatabaseZap
+---
+
+## データベース設計の基本
+
+データベース設計は、アプリケーションのデータ管理戦略の基盤となるものです。
+現代のシステムでは、データの種類や用途に応じて異なるタイプのデータベースを選択することが一般的になっています。
+
+### 主要なデータベースタイプ
+
+#### リレーショナルデータベース（RDB）
+- テーブル、行、列による構造化データの格納
+- SQLによるクエリ言語
+- 正規化によるデータの一貫性確保
+- トランザクションのACID特性（原子性、一貫性、独立性、耐久性）
+
+#### NoSQLデータベース
+- 柔軟なスキーマ
+- 水平スケーラビリティ
+- 多様なデータモデル（ドキュメント、キーバリュー、ワイドカラム、グラフ）
+- 分散システム向けの設計
+
+#### ベクトルデータベース
+- 高次元ベクトルデータの格納と検索
+- 類似性検索の最適化
+- AI・機械学習との統合
+- 埋め込みベクトル（Embeddings）活用
+
+## リレーショナルデータベース（RDB）
+
+リレーショナルデータベースは、構造化されたデータを表形式で格納し、関係性を明確に定義するシステムです。
+
+### 基本概念
+- テーブル（エンティティ）と行（レコード）による構造
+- スキーマによる厳格なデータ構造定義
+- 主キー、外部キーによる関連付け
+- トランザクション処理の保証（ACID特性）
+
+### 正規化の原則
+1. **第一正規形（1NF）**: 各列が原子的な値を持つ
+2. **第二正規形（2NF）**: 1NFを満たし、すべての非キー列が主キーに完全依存
+3. **第三正規形（3NF）**: 2NFを満たし、非キー列が他の非キー列に依存しない
+
+### スキーマ設計例
+```sql title="スキーマ設計例"
+-- ユーザーテーブル
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  username VARCHAR(50) UNIQUE NOT NULL,
+  email VARCHAR(100) UNIQUE NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 投稿テーブル
+CREATE TABLE posts (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL,
+  title VARCHAR(200) NOT NULL,
+  content TEXT,
+  published_at TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+-- コメントテーブル
+CREATE TABLE comments (
+  id SERIAL PRIMARY KEY,
+  post_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  content TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+```
+
+### インデックス設計
+```sql  title="インデックス設定例"
+-- 検索効率向上のためのインデックス
+CREATE INDEX idx_posts_user_id ON posts(user_id);
+CREATE INDEX idx_posts_published_at ON posts(published_at);
+CREATE INDEX idx_comments_post_id ON comments(post_id);
+CREATE INDEX idx_comments_user_id ON comments(user_id);
+
+-- 複合インデックスの例
+CREATE INDEX idx_posts_user_published ON posts(user_id, published_at);
+```
+
+### 主要RDBMSの比較
+
+| データベース | 特徴 | 適したユースケース |
+|------------|------|----------------|
+| PostgreSQL | 高機能、拡張性、JSON対応 | 複雑なクエリ、地理空間データ、大規模システム |
+| MySQL/MariaDB | シンプル、高速、普及率高 | Webアプリ、中小規模システム |
+| Oracle | 高性能、エンタープライズ向け | 大企業、ミッションクリティカルシステム |
+| SQL Server | .NET連携、Windowsとの統合 | Windowsベースのエコシステム |
+| SQLite | 組み込み、ファイルベース | モバイルアプリ、小規模アプリ、開発環境 |
+
+## NoSQLデータベース
+
+NoSQLデータベースは、柔軟なスキーマと高いスケーラビリティを特徴とし、様々なデータモデルをサポートします。
+
+### 主要タイプと特徴
+
+#### ドキュメント指向データベース
+JSON/BSONなどの形式でデータを格納し、柔軟なスキーマを提供します。
+
+```json title="MongoDB ドキュメント例"
+{
+  "_id": ObjectId("60a2e8f05c6e2d3d683e5d82"),
+  "username": "tanaka_taro",
+  "email": "tanaka@example.com",
+  "profile": {
+    "firstName": "太郎",
+    "lastName": "田中",
+    "age": 35
+  },
+  "interests": ["programming", "music", "travel"],
+  "posts": [
+    {
+      "title": "NoSQLの基本",
+      "content": "NoSQLデータベースの基本について...",
+      "comments": [
+        {"user": "yamada", "text": "参考になりました！"}
+      ]
+    }
+  ]
+}
+```
+
+#### キーバリューストア
+シンプルなキーと値のペアでデータを格納します。
+
+```bash title="Redis コマンド例"
+SET user:1001 '{"name":"山田太郎","email":"yamada@example.com"}'
+SET user:1002 '{"name":"鈴木花子","email":"suzuki@example.com"}'
+GET user:1001
+```
+
+#### ワイドカラムストア
+行指向ではなく列指向のデータモデルを採用し、大量データの分析に有利です。
+
+```cql title="Cassandra CQL 例"
+CREATE TABLE user_activities (
+  user_id UUID,
+  timestamp TIMESTAMP,
+  activity_type TEXT,
+  details MAP<TEXT, TEXT>,
+  PRIMARY KEY (user_id, timestamp)
+) WITH CLUSTERING ORDER BY (timestamp DESC);
+```
+
+#### グラフデータベース
+ノードとエッジでデータ間の関係性を表現します。
+
+```cypher title="Neo4j Cypher クエリ例"
+CREATE (user:Person {name: "田中太郎"})
+CREATE (post:Content {title: "グラフDBの活用法"})
+CREATE (user)-[:WROTE]->(post)
+CREATE (comment:Comment {text: "素晴らしい記事です"})
+CREATE (anotherUser:Person {name: "佐藤次郎"})
+CREATE (anotherUser)-[:POSTED]->(comment)-[:ON]->(post)
+```
+
+### NoSQLデータベースのインデックス設計
+
+NoSQLデータベースでも、効率的なクエリ実行のためにインデックスが重要です。しかし、RDBとは異なる考え方が必要です。
+
+#### インデックス設計の基本原則
+
+1. **クエリパターン駆動**: 実際のアクセスパターンに基づいてインデックスを設計
+2. **選択性の高いフィールド**: 絞り込みに効果的なフィールドを選択
+3. **複合インデックス**: 複数条件での検索を最適化
+4. **過剰なインデックスを避ける**: 書き込みパフォーマンスの低下につながる
+
+#### MongoDBのインデックス例
+```js title="MongoDB のインデックス例"
+// 単一フィールドインデックス
+db.users.createIndex({ "email": 1 });  // 1は昇順、-1は降順
+
+// 複合インデックス
+db.posts.createIndex({ "category": 1, "published_date": -1 });
+
+// 配列フィールドのインデックス
+db.products.createIndex({ "tags": 1 });
+
+// テキスト検索用インデックス
+db.articles.createIndex({ "content": "text" });
+
+// ワイルドカードインデックス（MongoDB 4.2+）
+db.data.createIndex({ "metadata.$**": 1 });
+```
+
+#### DynamoDBのインデックス設計
+```json title="GSI（グローバルセカンダリインデックス）の例"
+{
+  "TableName": "UserPosts",
+  "GlobalSecondaryIndexes": [
+    {
+      "IndexName": "CategoryIndex",
+      "KeySchema": [
+        { "AttributeName": "category", "KeyType": "HASH" },
+        { "AttributeName": "published_at", "KeyType": "RANGE" }
+      ],
+      "Projection": { "ProjectionType": "ALL" }
+    }
+  ]
+}
+```
+
+#### インデックス設計時の注意点
+
+- **書き込みコスト**: 各インデックスは書き込み操作のオーバーヘッドを増加させる
+- **ストレージコスト**: インデックスは追加のストレージを消費する
+- **インデックスの限界**: DBによってインデックス数や種類に制限がある
+- **クエリアナライザの活用**: 実際のクエリ実行計画を確認してインデックスの有効性を検証
+
+### 主要NoSQLデータベースの比較
+
+| データベース | タイプ | 特徴 | 適したユースケース |
+|------------|------|------|----------------|
+| MongoDB | ドキュメント | 柔軟なスキーマ、クエリ機能 | コンテンツ管理、カタログ |
+| Redis | キーバリュー | インメモリ、高速 | キャッシュ、リアルタイム分析 |
+| Cassandra | ワイドカラム | 分散処理、高可用性 | 時系列データ、IoT |
+| Neo4j | グラフ | 関係性の表現と探索 | ソーシャルネットワーク、推薦システム |
+| DynamoDB | キーバリュー | フルマネージド、自動スケール | サーバーレスアプリ、高トラフィックWebサイト |
+
+### CAP定理と選択
+
+CAP定理は、分散データベースシステムが同時に満たせる特性が最大で2つであることを示します：
+
+- **C**onsistency（一貫性）: すべてのノードが同じデータを見る
+- **A**vailability（可用性）: すべてのリクエストに応答する
+- **P**artition tolerance（分断耐性）: ネットワーク分断が発生しても動作する
+
+## ベクトルデータベース
+
+ベクトルデータベースは、高次元ベクトル空間内での類似性検索に特化したデータベースです。
+
+### 基本概念
+- 埋め込みベクトル（Embeddings）によるデータ表現
+- 類似度測定（コサイン類似度、ユークリッド距離など）
+- 近似最近傍（ANN）検索アルゴリズム
+- 高次元データの効率的な索引付け
+
+### 距離指標と類似度測定
+
+ベクトルデータベースでは、異なる距離指標を使用して類似性を計算します。用途によって適切な指標が異なります：
+
+#### コサイン類似度
+ベクトル間の角度に基づく指標。方向の類似性を測定するのに適しています。
+```
+cosine_similarity(A, B) = (A・B) / (|A| × |B|)
+```
+
+値の範囲は -1（正反対）から 1（完全に同じ方向）で、大きいほど類似しています。
+
+#### ユークリッド距離
+ベクトル間の直線距離を測定します。絶対的な位置の類似性に適しています。
+```
+euclidean_distance(A, B) = √(Σ(Ai - Bi)²)
+```
+
+値は 0（同一）から無限大で、小さいほど類似しています。
+
+#### 内積
+ベクトルの方向と大きさの両方を考慮した指標です。
+```
+dot_product(A, B) = Σ(Ai × Bi)
+```
+
+正規化されていないベクトルで使用される場合があります。
+
+#### マンハッタン距離
+各次元の差の絶対値の合計で、直交座標系での移動距離を表します。
+```
+manhattan_distance(A, B) = Σ|Ai - Bi|
+```
+
+正規直交座標系での移動を表現するのに適しています。
+
+#### 実装例
+```python
+import numpy as np
+from scipy.spatial import distance
+
+# 2つのベクトル
+vec_a = np.array([0.1, 0.2, 0.3, 0.4])
+vec_b = np.array([0.2, 0.3, 0.5, 0.1])
+
+# コサイン類似度
+cos_sim = 1 - distance.cosine(vec_a, vec_b)  # 1から引くことで類似度に変換
+print(f"コサイン類似度: {cos_sim}")  # 値が大きいほど類似
+
+# ユークリッド距離
+eucl_dist = distance.euclidean(vec_a, vec_b)
+print(f"ユークリッド距離: {eucl_dist}")  # 値が小さいほど類似
+
+# 内積
+dot_prod = np.dot(vec_a, vec_b)
+print(f"内積: {dot_prod}")
+
+# マンハッタン距離
+manh_dist = distance.cityblock(vec_a, vec_b)
+print(f"マンハッタン距離: {manh_dist}")  # 値が小さいほど類似
+```
+
+### 主な用途
+- 自然言語処理（NLP）ベースの検索
+- 画像・音声・動画の類似性検索
+- レコメンデーションシステム
+- 異常検知
+
+### データ構造の例
+```python
+# テキスト埋め込みの例
+text_documents = [
+    "ベクトルデータベースの基本",
+    "機械学習による画像認識",
+    "自然言語処理の最新技術動向"
+]
+
+# モデルによる埋め込みベクトル生成（例: OpenAI Embedding API）
+embeddings = [
+    [0.12, 0.45, 0.76, ...],  # 512次元または1536次元のベクトル
+    [0.34, 0.56, 0.21, ...],
+    [0.15, 0.42, 0.81, ...]
+]
+
+# ベクトルデータベースへの保存（例: Pinecone）
+for i, (doc, embedding) in enumerate(zip(text_documents, embeddings)):
+    db.upsert(
+        id=f"doc_{i}",
+        vector=embedding,
+        metadata={"text": doc}
+    )
+```
+
+### クエリ例
+```python
+# 類似検索の例
+query_text = "ベクトルデータベースの活用方法"
+query_embedding = embed_text(query_text)  # [0.13, 0.46, 0.72, ...]
+
+# 上位3件の類似ドキュメントを検索
+results = db.query(
+    vector=query_embedding,
+    top_k=3,
+    include_metadata=True
+)
+```
+
+### 主要ベクトルデータベースの比較
+
+| データベース | 特徴 | スケーラビリティ | 統合の容易さ |
+|------------|------|----------------|------------|
+| Pinecone | フルマネージド、専用設計 | 高 | API中心、簡単 |
+| Qdrant | オープンソース、柔軟なフィルタリング | 中〜高 | 自己ホスト可 |
+| Milvus | 大規模向け、多様なインデックス | 高 | やや複雑 |
+| Weaviate | スキーマ定義、GraphQLインターフェース | 中〜高 | 多機能 |
+| Chroma | 軽量、開発向け | 低〜中 | 非常に簡単 |
+| pgvector | PostgreSQL拡張、SQL統合 | 中 | RDBMSと親和性高 |
+
+### ハイブリッド検索
+
+ベクトル検索と従来のキーワード検索を組み合わせることで精度を向上できます。
+
+```python title="ハイブリッド検索の例（擬似コード）"
+def hybrid_search(query, collection):
+    # ベクトル検索
+    vector_results = collection.vector_search(
+        query_embedding=embed_text(query),
+        top_k=50
+    )
+
+    # キーワード検索
+    keyword_results = collection.keyword_search(
+        query=query,
+        top_k=50
+    )
+
+    # 結果のハイブリッド再ランキング
+    combined_results = rerank_results(
+        vector_results=vector_results,
+        keyword_results=keyword_results,
+        alpha=0.7  # ベクトル検索の重み
+    )
+
+    return combined_results[:10]  # 上位10件を返す
+```
+
+## データベース選択ガイド
+
+データベースの選択は、データの性質、アクセスパターン、スケーラビリティ要件などによって異なります。
+
+### リレーショナルDBが適している場合
+- 構造化されたデータと明確なスキーマがある
+- 複雑なクエリやジョインが必要
+- ACID準拠のトランザクションが重要
+- データ整合性とバリデーションが不可欠
+- レポート生成や分析クエリが多い
+
+### NoSQLが適している場合
+- スキーマの柔軟性が必要
+- 非構造化または半構造化データを扱う
+- 水平スケーリングが必要
+- 地理的に分散したデータアクセス
+- 特定のデータモデル（グラフ、ドキュメントなど）に最適化が必要
+
+### ベクトルDBが適している場合
+- 意味的検索や類似性検索が主要機能
+- テキスト、画像、音声などの高次元データを扱う
+- AIモデルとの統合が前提
+- 自然言語によるクエリをサポート
+- レコメンデーションエンジンの実装
+
+### ハイブリッドアプローチ
+
+多くの現代的システムでは、複数のデータベースタイプを組み合わせた「ポリグロット永続化」アプローチを採用します：
+
+```
+アプリケーション
+  │
+  ├── PostgreSQL (トランザクション、構造化データ)
+  │     └── pgvector拡張 (小〜中規模のベクトル検索)
+  │
+  ├── MongoDB (柔軟なドキュメント、半構造化データ)
+  │
+  ├── Redis (キャッシュ、セッション、一時データ)
+  │
+  ├── Pinecone (大規模ベクトル検索)
+  │
+  └── Neo4j (関係性の複雑なグラフデータ)
+```
+
+## データ移行と連携の考慮事項
+
+複数のデータベースを組み合わせる場合、データの移行と連携は重要な課題となります。
+
+### データ移行の課題
+
+1. **スキーマの変換**
+   - RDBから非構造化DBへの移行時のスキーママッピング
+   - 正規化データの非正規化変換
+
+   ```js title="RDB から MongoDB への変換例（擬似コード）"
+   function convertUserWithPosts(rdbData) {
+     const { users, posts, comments } = rdbData;
+
+     return users.map(user => ({
+       _id: user.id,
+       username: user.username,
+       email: user.email,
+       posts: posts
+         .filter(post => post.user_id === user.id)
+         .map(post => ({
+           title: post.title,
+           content: post.content,
+           comments: comments
+             .filter(comment => comment.post_id === post.id)
+             .map(comment => ({
+               text: comment.text,
+               created_at: comment.created_at
+             }))
+         }))
+     }));
+   }
+   ```
+
+2. **データ整合性の確保**
+   - トランザクション境界の再定義
+   - 一時的な不整合の許容と解決戦略
+
+3. **移行戦略**
+   - ビッグバン移行 vs. 段階的移行
+   - ダウンタイムを最小化するための並行運用期間
+
+   ```python title="段階的移行の例（擬似コード）"
+   def migrate_in_batches(source_db, target_db, batch_size=1000):
+       total_records = source_db.count_records()
+       batches = (total_records + batch_size - 1) // batch_size
+
+       for i in range(batches):
+           offset = i * batch_size
+           records = source_db.fetch_batch(offset, batch_size)
+           transformed_records = transform_records(records)
+           target_db.insert_batch(transformed_records)
+
+           print(f"Migrated batch {i+1}/{batches} ({offset}-{offset+len(records)})")
+   ```
+
+### データ連携パターン
+
+1. **データ複製**
+   - 主要データを一方のDBに保存し、他方のDBに複製
+   - 変更データキャプチャ（CDC）による同期
+
+   ```js title="イベントに基づく複製パターン（擬似コード）"
+   function onUserUpdated(userId, changes) {
+     // RDBMS に更新
+     sqlDB.executeUpdate("UPDATE users SET ... WHERE id = ?", [userId, ...]);
+
+     // Redisキャッシュを無効化
+     redisCache.invalidate(`user:${userId}`);
+
+     // ベクトルDBのメタデータ更新
+     if (changes.username || changes.profile) {
+       const updatedUser = sqlDB.fetchUser(userId);
+       vectorDB.updateMetadata(`user-${userId}`, {
+         username: updatedUser.username,
+         profile: updatedUser.profile
+       });
+     }
+   }
+   ```
+
+2. **イベントソーシング**
+   - イベントストアに全変更を記録
+   - 各データベースが必要なイベントを購読して状態を更新
+
+3. **APIゲートウェイ**
+   - 統合APIレイヤーを介してデータアクセスを抽象化
+   - 適切なDBへのルーティングをアプリケーションから隠蔽
+
+   ```js title="APIゲートウェイの例（Node.js Express）"
+   app.get('/users/:id', async (req, res) => {
+     const userId = req.params.id;
+
+     // 基本情報はRDBから取得
+     const basicInfo = await sqlDB.getUserBasicInfo(userId);
+
+     // 活動履歴はNoSQLから取得
+     const activities = await mongoDb.getUserActivities(userId);
+
+     // 類似ユーザーはベクトルDBから取得
+     const similarUsers = await vectorDb.getSimilarUsers(userId);
+
+     // 統合レスポンス
+     res.json({
+       user: basicInfo,
+       activities,
+       similarUsers
+     });
+   });
+   ```
+
+4. **データ整合性の確保**
+   - 最終的整合性モデルの採用
+   - 分散トランザクションの実装（Saga パターンなど）
+   - 冪等性の確保による重複処理の安全性
+
+### 考慮すべき運用面の課題
+
+- **パフォーマンスモニタリング**: 複数DBにまたがるクエリのボトルネック特定
+- **バックアップと復元**: 複数DBの一貫した状態保存
+- **スキルセット**: 開発・運用チームの多様なDB技術への習熟
+- **コスト管理**: 複数システムの総所有コスト（TCO）
+
+---
+
+## まとめ
+
+データベース設計は、アプリケーションの要件と将来の拡張性を考慮した戦略的な選択です。
+
+- **リレーショナルデータベース**は整合性、構造化、関係性が重要な場合に優れています
+- **NoSQLデータベース**は柔軟性、スケーラビリティ、特殊なデータモデルが必要な場合に適しています
+- **ベクトルデータベース**はAIと統合した意味的検索や類似性検索に不可欠です
+
+最適なデータベース選択は、データの性質、アクセスパターン、パフォーマンス要件、開発チームのスキルセットなど、多くの要因によって決まります。
+単一のデータベースですべてのニーズを満たすことは難しいため、現代のアプリケーションでは複数のデータベースを目的に応じて使い分けるアプローチが一般的になっています。
+
+ポリグロットデータベース戦略を採用する場合は、データ移行と連携のための適切なパターンを設計し、
+整合性とパフォーマンスのバランスを取りながら、長期的な運用コストも考慮することが重要です。
