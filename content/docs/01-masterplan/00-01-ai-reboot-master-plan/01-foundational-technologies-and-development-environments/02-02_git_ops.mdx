@@ -1,0 +1,490 @@
+---
+title: GitOps
+description: GitOps
+icon: GitBranch
+---
+
+## GitOps の基本概念
+
+GitOps は、Git リポジトリをシステムやインフラストラクチャの Configuration（構成）の「単一真実源（Single Source of Truth）」として活用する運用モデルです。
+システム構成をコードとして扱い、Git 操作を通じて変更管理からデプロイまでを自動化します。
+
+### GitOps の主要原則
+
+1. **宣言的インフラストラクチャ**
+   - システムの望ましい状態を宣言的に記述
+   - YAML/JSON ファイルや IaC ツールで実現
+   - 「どのように」ではなく「何を」実現するかに焦点
+
+2. **単一真実源としての Git**
+   - 全ての構成がバージョン管理された Git リポジトリに格納
+   - コード審査を通じた変更管理
+   - 変更履歴を完全に記録・追跡可能
+
+3. **継続的な調整（Continuous Reconciliation）**
+   - Git の状態と実際のシステム状態を自動的に同期
+   - 望ましい状態と実際の状態の差分を検出・修正
+   - 「プル型」モデルによる安全なデプロイ
+
+4. **セルフヒーリング**
+   - システムのドリフト（期待状態からの逸脱）の自動検出
+   - 望ましい状態への自動復元
+   - 宣言的構成に基づく一貫性の維持
+
+## GitOps のワークフロー
+
+### 開発者のワークフロー
+
+1. **コード変更**
+   - ローカル環境でアプリケーションや構成ファイルを変更
+   - 変更を機能ブランチにコミット
+
+2. **Pull Request（PR）を作成**
+   - 変更をレビュー用に PR として提出
+   - 自動テストや CI/CD パイプラインの実行
+
+3. **コードレビューと承認**
+   - チームメンバーによる変更内容の確認
+   - 変更が組織の標準やポリシーに準拠しているか検証
+
+4. **メインブランチへのマージ**
+   - 承認された変更をメインブランチ（main/master）へマージ
+   - マージがトリガーとなり、デプロイプロセスが開始
+
+### オペレーションのワークフロー
+
+1. **変更の検出**
+   - GitOps オペレータが Git リポジトリの変更を監視
+   - メインブランチへのマージを検知
+
+2. **差分の特定**
+   - 望ましい状態（Git リポジトリ）と現在の状態を比較
+   - デプロイが必要な変更を特定
+
+3. **変更の適用**
+   - 検出された差分を実際の環境に適用
+   - デプロイの進行状況と結果をレポート
+
+4. **継続的な監視**
+   - システム状態の継続的な監視
+   - ドリフトが発生した場合の自動修正
+
+## GitOps の実装パターン
+
+### リポジトリ構造
+
+#### シングルリポジトリアプローチ
+全ての構成を単一のリポジトリで管理します。
+
+```
+infrastructure-repo/
+├── applications/
+│   ├── app1/
+│   │   ├── deployment.yaml
+│   │   ├── service.yaml
+│   │   └── configmap.yaml
+│   └── app2/
+│       └── ...
+├── environments/
+│   ├── development/
+│   │   ├── kustomization.yaml
+│   │   └── env-specific-configs/
+│   ├── staging/
+│   │   └── ...
+│   └── production/
+│       └── ...
+└── common/
+    ├── namespaces.yaml
+    └── network-policies.yaml
+```
+
+**メリット:**
+- シンプルな構造で管理が容易
+- アプリケーション間の依存関係が可視化しやすい
+
+**デメリット:**
+- 大規模プロジェクトでは複雑化する可能性
+- 権限管理が粗粒度になりがち
+
+#### マルチリポジトリアプローチ
+アプリケーションリポジトリと環境構成リポジトリを分離します。
+
+1. **アプリケーションリポジトリ**
+```
+app-repo/
+├── src/
+│   └── ...
+├── Dockerfile
+└── kubernetes/
+    ├── base/
+    │   ├── deployment.yaml
+    │   └── service.yaml
+    └── overlays/
+        ├── development/
+        ├── staging/
+        └── production/
+```
+
+2. **環境構成リポジトリ**
+```
+env-repo/
+├── development/
+│   ├── apps/
+│   │   ├── app1.yaml
+│   │   └── app2.yaml
+│   └── infrastructure/
+│       └── ...
+├── staging/
+│   └── ...
+└── production/
+    └── ...
+```
+
+**メリット:**
+- 関心事の分離がクリア
+- 環境別の権限管理が容易
+- チーム間の責任範囲が明確
+
+**デメリット:**
+- 複数リポジトリの同期管理が必要
+- セットアップが若干複雑
+
+### プル型デプロイモデル
+
+GitOps の核心となる「プル型」デプロイモデルでは、クラスタ内のオペレータが Git の変更を監視します。
+
+```yaml title="Flux の Git リポジトリ監視設定例"
+apiVersion: source.toolkit.fluxcd.io/v1beta1
+kind: GitRepository
+metadata:
+  name: infrastructure-repo
+  namespace: flux-system
+spec:
+  interval: 1m
+  url: https://github.com/organization/infrastructure-repo
+  ref:
+    branch: main
+---
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta1
+kind: Kustomization
+metadata:
+  name: applications
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: "./applications"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: infrastructure-repo
+```
+
+**利点:**
+- クラスタ内からのみの変更適用で安全性が向上
+- 認証情報がクラスタ外に露出しない
+- 自己修復機能による高い信頼性
+
+## 主要な GitOps ツール
+
+### Flux CD
+
+Flux CD は、Kubernetes 用の GitOps エージェントで、指定された Git リポジトリの状態をクラスタに自動的に同期します。
+
+```yaml title="Flux CD の Kustomization リソース例"
+apiVersion: kustomize.toolkit.fluxcd.io/v1beta2
+kind: Kustomization
+metadata:
+  name: podinfo
+  namespace: flux-system
+spec:
+  interval: 5m
+  path: "./kustomize"
+  prune: true
+  sourceRef:
+    kind: GitRepository
+    name: podinfo
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: podinfo
+      namespace: default
+  timeout: 2m
+```
+
+**特徴:**
+- Kubernetes 専用設計
+- 強力な監視・調整機能
+- Kustomize との統合
+- 通知機能
+
+### ArgoCD
+
+ArgoCD は、GitOps モデルに基づく Kubernetes 向けの継続的デリバリーツールです。
+
+```yaml title="ArgoCD Application リソース例"
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: guestbook
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/argoproj/argocd-example-apps.git
+    targetRevision: HEAD
+    path: guestbook
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: guestbook
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+```
+
+**特徴:**
+- わかりやすい UI ダッシュボード
+- 複数クラスタ管理
+- SSO 統合
+- 豊富なプラグイン
+
+### Jenkins X
+
+Jenkins X は、Kubernetes 向けの CI/CD ソリューションで、GitOps を中核としています。
+
+```yaml title="例: jx-requirements.yml"
+apiVersion: core.jenkins-x.io/v4beta1
+kind: Requirements
+spec:
+  cluster:
+    provider: eks
+    region: us-east-1
+  environments:
+    - key: dev
+      repository: environment-jx-dev
+    - key: staging
+      repository: environment-jx-staging
+    - key: production
+      repository: environment-jx-production
+  storage:
+    logs:
+      enabled: true
+      url: s3://jx-logs
+  webhook: lighthouse
+```
+
+**特徴:**
+- プレビュー環境の自動作成
+- パイプラインの自動化
+- チャット Ops との統合
+- 豊富なクラウドプロバイダー対応
+
+## GitOps の実践例
+
+### Kubernetes 環境での GitOps
+
+```yaml title="Kubernetes マニフェスト例（deployment.yaml）"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+  namespace: production
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      containers:
+      - name: myapp
+        image: organization/myapp:1.2.3
+        ports:
+        - containerPort: 8080
+        resources:
+          limits:
+            cpu: 500m
+            memory: 512Mi
+          requests:
+            cpu: 200m
+            memory: 256Mi
+```
+
+このマニフェストを Git リポジトリにコミットすると、GitOps オペレータが検知して適用します。
+
+### 環境間のプロモーション
+
+```yaml title="Kustomize オーバーレイを使用した環境設定（overlays/production/kustomization.yaml）"
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../../base
+namePrefix: prod-
+namespace: production
+patchesStrategicMerge:
+  - deployment-patch.yaml
+```
+
+```yaml title="環境固有設定（overlays/production/deployment-patch.yaml）"
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  replicas: 5
+  template:
+    spec:
+      containers:
+      - name: myapp
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+          requests:
+            cpu: 500m
+            memory: 512Mi
+```
+
+デベロッパーは branch-based promotion や PR-based promotion を通じて、アプリケーションの変更を環境間で昇格させることができます。
+
+## GitOps の導入ステップ
+
+### 1. 既存インフラのドキュメント化
+
+既存システムの構成を宣言的に文書化し、初期状態として Git に保存します。
+
+```bash title="既存の Kubernetes リソースを YAML としてエクスポート"
+kubectl get deployment -n app-namespace -o yaml > app-deployments.yaml
+kubectl get service -n app-namespace -o yaml > app-services.yaml
+```
+
+### 2. リポジトリ構造の設計
+
+適切なリポジトリ構造を決定し、初期構成をコミットします。
+
+```bash title="リポジトリ構造の作成"
+mkdir -p infrastructure/base infrastructure/overlays/{dev,staging,prod}
+git init
+git add .
+git commit -m "Initial infrastructure setup"
+git remote add origin git@github.com:organization/infrastructure.git
+git push -u origin main
+```
+
+### 3. GitOps ツールのインストールと設定
+
+選択した GitOps ツール（例：Flux CD）をインストールします。
+
+```bash
+# Flux CLI のインストール
+brew install fluxcd/tap/flux
+
+# クラスタへの Flux のブートストラップ
+flux bootstrap github \
+  --owner=organization \
+  --repository=infrastructure \
+  --branch=main \
+  --path=clusters/production \
+  --personal
+```
+
+### 4. 継続的改善と拡張
+
+段階的に適用範囲を拡大し、チームの習熟度を高めます。
+
+```yaml title="通知設定の追加（Flux CD）"
+apiVersion: notification.toolkit.fluxcd.io/v1beta1
+kind: Provider
+metadata:
+  name: slack
+  namespace: flux-system
+spec:
+  type: slack
+  channel: gitops-notifications
+  secretRef:
+    name: slack-url
+---
+apiVersion: notification.toolkit.fluxcd.io/v1beta1
+kind: Alert
+metadata:
+  name: deployment-alerts
+  namespace: flux-system
+spec:
+  providerRef:
+    name: slack
+  eventSeverity: info
+  eventSources:
+    - kind: Kustomization
+      name: '*'
+```
+
+## GitOps の利点とチャレンジ
+
+### 主なメリット
+
+1. **監査性と追跡可能性**
+   - すべての変更が Git に記録
+   - 誰が、いつ、何を変更したかが明確
+   - コンプライアンス要件への適合が容易
+
+2. **安定性とロールバック**
+   - 問題発生時の迅速なロールバック
+   - 以前の安定状態への復元が容易
+   - 宣言的アプローチによる一貫性
+
+3. **安全性と信頼性**
+   - 自動化された変更適用
+   - 人的ミスの減少
+   - インフラストラクチャの一貫性維持
+
+4. **開発者エクスペリエンス**
+   - 一貫したワークフロー
+   - シフトレフト（早期の問題検出）
+   - セルフサービス機能
+
+### 克服すべき課題
+
+1. **秘密情報の管理**
+   - 認証情報などの秘密情報を Git に保存しない
+   - シークレット管理ツール（Sealed Secrets、Vault）との連携
+
+   ```yaml title="Bitnami Sealed Secrets の例"
+   apiVersion: bitnami.com/v1alpha1
+   kind: SealedSecret
+   metadata:
+     name: database-credentials
+     namespace: app-namespace
+   spec:
+     encryptedData:
+       username: AgBy8hCM8...truncated...
+       password: AgCB8hCJ9...truncated...
+   ```
+
+2. **学習曲線**
+   - Git 操作に不慣れなチームメンバーの教育
+   - 新しいワークフローとプロセスの導入
+
+3. **状態管理の複雑さ**
+   - ステートフルアプリケーションの管理
+   - 外部リソースとの連携
+
+---
+
+## まとめ
+
+GitOps は、Git をシステム構成の単一真実源として活用することで、より安全で信頼性の高いデプロイプロセスを実現します。その主要原則は：
+
+1. **宣言的アプローチ** - システムの望ましい状態をコードとして定義
+2. **バージョン管理された単一真実源** - Git リポジトリで全ての変更を追跡
+3. **継続的調整** - 実際のシステム状態を Git の状態と一致させる自動化
+4. **セルフヒーリング** - ドリフトの検出と自動修正
+
+GitOps は単なるツールや技術ではなく、組織の DevOps 文化を強化するための実践方法であり、インフラストラクチャとアプリケーションデプロイの管理方法を根本的に改善します。
+適切に実装することで、変更管理の透明性向上、デプロイの安全性と信頼性向上、開発者とオペレーション間のコラボレーション強化など、多くのメリットを享受できます。
+
+組織に合った GitOps の導入計画を立て、チームのスキルセットと既存のプロセスを考慮しながら、段階的に実装していくことが成功の鍵となります。
