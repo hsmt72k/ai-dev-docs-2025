@@ -1,0 +1,652 @@
+---
+title: フロントエンドフレームワーク
+description: Frontend Framework
+icon: Layers
+---
+
+## フロントエンドフレームワークの総合比較: React、Vue、Svelte
+
+### 1. フロントエンドフレームワークの基本
+
+現代のWeb開発では、フロントエンドフレームワークがユーザーインターフェース構築の中心的役割を担っています。これらのフレームワークは、複雑なUIを効率的に開発・管理するための機能を提供し、特に「状態管理」と「コンポーネントライフサイクル」は最も重要な概念です。
+
+#### 主要フレームワークの概略
+
+| フレームワーク | 初リリース | 開発元 | アーキテクチャ | 主な特徴 |
+|--------------|-----------|-------|-------------|----------|
+| React        | 2013年    | Meta (Facebook) | 仮想DOM、コンポーネントベース | 宣言的UI、単方向データフロー |
+| Vue          | 2014年    | Evan You | 仮想DOM、コンポーネントベース | 漸進的採用、リアクティブシステム |
+| Svelte       | 2016年    | Rich Harris | コンパイラベース | ビルド時最適化、最小ランタイム |
+
+### 2. 状態管理の比較
+
+#### 2.1 ローカル状態管理
+
+##### React
+```jsx title="React"
+import { useState } from 'react';
+
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <div>
+      <p>カウント: {count}</p>
+      <button onClick={() => setCount(count + 1)}>増加</button>
+    </div>
+  );
+}
+```
+
+##### Vue 3 (Composition API)
+```vue title="Vue 3 (Composition API)"
+<template>
+  <div>
+    <p>カウント: {{ count }}</p>
+    <button @click="increment">増加</button>
+  </div>
+</template>
+
+<script setup>
+import { ref } from 'vue';
+
+const count = ref(0);
+
+function increment() {
+  count.value++;
+}
+</script>
+```
+
+##### Svelte
+```svelte title="Svelte"
+<script>
+  let count = 0;
+
+  function increment() {
+    count += 1;
+  }
+</script>
+
+<div>
+  <p>カウント: {count}</p>
+  <button on:click={increment}>増加</button>
+</div>
+```
+
+#### 2.2 グローバル状態管理ライブラリの比較
+
+| ライブラリ | フレームワーク | サイズ | 学習コスト | 特徴 | ユースケース |
+|-----------|-------------|-------|----------|------|------------|
+| **Context API** | React | 組み込み | 低 | 単純なAPI、直接的なプロバイダパターン | 小〜中規模アプリ、浅い状態ツリー |
+| **Redux** | React | 〜42KB | 高 | 厳格な単方向フロー、タイムトラベルデバッグ | 大規模アプリ、複雑な状態遷移 |
+| **Zustand** | React | 〜3.9KB | 低 | シンプルなAPI、hooks優先 | 小〜大規模アプリ、シンプルな状態管理 |
+| **Recoil** | React | 〜21KB | 中 | 原子ベース、非同期対応 | データフロー複雑なアプリ |
+| **Jotai** | React | 〜6KB | 低 | 軽量原子モデル、非同期サポート | Recoilより軽量な実装が必要な場合 |
+| **Vuex** | Vue 2 | 〜9.3KB | 中 | フラックスパターン、モジュール構造 | Vue 2アプリ、構造化された状態管理 |
+| **Pinia** | Vue 3 | 〜1.6KB | 低 | TypeScript統合、Composition API | Vue 3アプリ、モダンで軽量な状態管理 |
+| **Svelte Store** | Svelte | 組み込み | 最低 | シンプルなストア契約、最小実装 | Svelteアプリ、統合された体験 |
+
+#### 2.3 状態管理アプローチの主な違い
+
+| フレームワーク | 状態更新メカニズム | データフローモデル | 変更検出 |
+|--------------|-----------------|-----------------|----------|
+| React | 明示的な更新関数 | 単方向（トップダウン） | 仮想DOM比較 |
+| Vue | プロキシによる自動追跡 | 双方向バインディング可能 | 依存関係追跡 + 仮想DOM |
+| Svelte | 変数代入による直接更新 | リアクティブ宣言 | コンパイル時生成のコード |
+
+### 3. ライフサイクル管理
+
+#### 3.1 各フレームワークのライフサイクルパターン
+
+##### React Hooks
+```jsx title="React Hooks"
+import { useState, useEffect } from 'react';
+
+function ExampleComponent() {
+  const [data, setData] = useState(null);
+
+  // マウント時とアンマウント時
+  useEffect(() => {
+    console.log('コンポーネントがマウントされました');
+
+    // クリーンアップ関数（アンマウント時に実行）
+    return () => {
+      console.log('コンポーネントがアンマウントされます');
+    };
+  }, []); // 空配列 = 依存関係なし = マウント時のみ実行
+
+  // 特定の値が変更された時
+  useEffect(() => {
+    if (data) {
+      console.log('データが更新されました:', data);
+    }
+  }, [data]); // data変数への依存
+
+  return <div>{/* UI */}</div>;
+}
+```
+
+##### Vue 3 Composition API
+```vue title="Vue 3 Composition API"
+<script setup>
+import { ref, onMounted, onUpdated, onUnmounted, watch } from 'vue';
+
+const data = ref(null);
+
+// マウント時
+onMounted(() => {
+  console.log('コンポーネントがマウントされました');
+});
+
+// 更新時
+onUpdated(() => {
+  console.log('コンポーネントが更新されました');
+});
+
+// アンマウント時
+onUnmounted(() => {
+  console.log('コンポーネントがアンマウントされました');
+});
+
+// 特定の値の変更を監視
+watch(data, (newValue, oldValue) => {
+  console.log('データが変更されました:', newValue, oldValue);
+});
+</script>
+```
+
+##### Svelte
+```svelte title="Svelte"
+<script>
+  import { onMount, onDestroy, beforeUpdate, afterUpdate } from 'svelte';
+
+  let data = null;
+
+  onMount(() => {
+    console.log('コンポーネントがマウントされました');
+  });
+
+  beforeUpdate(() => {
+    console.log('更新前');
+  });
+
+  afterUpdate(() => {
+    console.log('更新後');
+  });
+
+  onDestroy(() => {
+    console.log('コンポーネントが破棄されます');
+  });
+
+  // リアクティブステートメント（dataが変わるたびに実行）
+  $: {
+    if (data) {
+      console.log('データが変更されました:', data);
+    }
+  }
+</script>
+```
+
+#### 3.2 ライフサイクルフックの比較
+
+| フェーズ | React | Vue | Svelte |
+|---------|-------|-----|--------|
+| **作成前** | - | beforeCreate | - |
+| **作成時** | - | created | - |
+| **マウント前** | - | beforeMount | - |
+| **マウント時** | useEffect([]) | mounted | onMount |
+| **更新前** | - | beforeUpdate | beforeUpdate |
+| **更新時** | useEffect([dep]) | updated | afterUpdate |
+| **アンマウント前** | useEffect return | beforeUnmount | onDestroy |
+| **アンマウント後** | - | unmounted | - |
+
+### 4. パフォーマンス最適化技術
+
+#### 4.1 React のパフォーマンス最適化
+
+```jsx title="メモ化によるコンポーネントの再レンダリング防止"
+import { memo, useMemo, useCallback } from 'react';
+
+// コンポーネントのメモ化
+const MemoizedComponent = memo(function MyComponent(props) {
+  return <div>{props.value}</div>;
+});
+
+function App() {
+  // 値のメモ化（依存値が変わらない限り再計算しない）
+  const expensiveValue = useMemo(() => {
+    return computeExpensiveValue(a, b);
+  }, [a, b]);
+
+  // 関数のメモ化（依存値が変わらない限り関数を再生成しない）
+  const handleClick = useCallback(() => {
+    doSomething(a, b);
+  }, [a, b]);
+
+  return <MemoizedComponent value={expensiveValue} onClick={handleClick} />;
+}
+```
+
+##### キー最適化技術
+- `React.memo()`: コンポーネントのメモ化
+- `useMemo()`: 計算値のメモ化
+- `useCallback()`: 関数のメモ化
+- 仮想リスト（react-window、react-virtualizedなど）
+- コード分割と遅延ロード（React.lazy と Suspense）
+
+#### 4.2 Vue のパフォーマンス最適化
+
+```vue title="リアクティブシステムの最適化"
+<template>
+  <!-- v-onceディレクティブで一度だけレンダリング -->
+  <div v-once>この内容は一度だけレンダリングされます</div>
+
+  <!-- v-memoディレクティブで依存値が変わらない限りスキップ -->
+  <div v-memo="[value]">{{ value }}</div>
+
+  <!-- キー付きのループで効率的な更新 -->
+  <div v-for="item in items" :key="item.id">{{ item.name }}</div>
+</template>
+
+<script setup>
+import { ref, computed, shallowRef, markRaw } from 'vue';
+
+// シャローリアクティビティで深い変更を追跡しない
+const state = shallowRef({ count: 0 });
+
+// オブジェクトをリアクティブシステムから除外
+const nonReactiveObject = markRaw({ large: 'data' });
+
+// 計算プロパティでメモ化
+const expensiveComputation = computed(() => {
+  return performExpensiveCalculation(a.value, b.value);
+});
+</script>
+```
+
+##### キー最適化技術
+- `v-memo`: テンプレート部分のメモ化
+- `v-once`: 一度だけのレンダリング
+- `computed`: メモ化された計算値
+- `shallowRef`/`shallowReactive`: ネストされたオブジェクトの変更を追跡しない
+- `markRaw`: リアクティブシステムから除外
+
+#### 4.3 Svelte のパフォーマンス最適化
+
+```svelte title="コンパイラ最適化"
+<script>
+  let count = 0;
+
+  // リアクティブステートメントでの最適化
+  $: expensiveValue = count > 10 ? computeExpensiveValue(count) : 0;
+
+  // 動的コンポーネントの遅延ロード
+  import { onMount } from 'svelte';
+
+  let Component;
+  onMount(async () => {
+    const module = await import('./HeavyComponent.svelte');
+    Component = module.default;
+  });
+</script>
+
+<!-- 条件付きレンダリング -->
+{#if count > 5}
+  <div>Heavy content</div>
+{/if}
+
+<!-- 動的コンポーネント -->
+{#if Component}
+  <svelte:component this={Component} />
+{/if}
+```
+
+##### キー最適化技術
+- コンパイル時の静的分析と最適化
+- ツリーシェイキングによる未使用コードの除去
+- リアクティブステートメントの効率的な更新
+- モジュールの遅延ロード
+- 仮想DOM不使用による直接的なDOM操作
+
+### 5. コミュニティとエコシステムの比較
+
+#### 5.1 コミュニティの活発度
+
+| フレームワーク | GitHubスター | 週間コミット平均 | Issue解決時間 | Stack Overflow質問数 | npm週間ダウンロード |
+|--------------|-------------|---------------|--------------|-------------------|-----------------|
+| React        | 207,000+    | 20-30件       | 約7日        | 370,000+          | 1,900万+        |
+| Vue          | 203,000+    | 10-20件       | 約14日       | 120,000+          | 450万+          |
+| Svelte       | 70,000+     | 10-15件       | 約5日        | 20,000+           | 80万+           |
+
+#### 5.2 エコシステムの成熟度
+
+##### React エコシステム
+- **ルーティング**: React Router, TanStack Router
+- **フォーム**: React Hook Form, Formik
+- **UI コンポーネント**: Material-UI, Chakra UI, Ant Design
+- **状態管理**: Redux, Zustand, Recoil, Jotai, TanStack Query
+- **テスト**: React Testing Library, Jest, Vitest
+- **メタフレームワーク**: Next.js, Remix, Gatsby
+- **モバイル**: React Native
+
+##### Vue エコシステム
+- **ルーティング**: Vue Router (公式)
+- **フォーム**: VeeValidate, FormKit
+- **UI コンポーネント**: Vuetify, Quasar, Element Plus
+- **状態管理**: Pinia (公式推奨), Vuex
+- **テスト**: Vue Test Utils (公式), Vitest
+- **メタフレームワーク**: Nuxt.js, Vite
+- **モバイル**: Vue Native, Ionic Vue
+
+##### Svelte エコシステム
+- **ルーティング**: SvelteKit (公式)
+- **フォーム**: Felte, svelte-forms-lib
+- **UI コンポーネント**: Carbon Components Svelte, Svelte Material UI
+- **状態管理**: 組み込みストア, svelte-store-tree
+- **テスト**: Svelte Testing Library, Vitest
+- **メタフレームワーク**: SvelteKit (公式)
+- **モバイル**: Svelte Native
+
+#### 5.3 学習リソースと企業採用
+
+| フレームワーク | 公式ドキュメント | 書籍 | 主な採用企業 |
+|--------------|--------------|------|--------------|------------|
+| React        | 詳細で網羅的   | 多数 | Meta, Netflix, Airbnb, Twitter, Uber |
+| Vue          | 簡潔で体系的   | 中程度 | Alibaba, Xiaomi, Adobe, GitLab |
+| Svelte       | 簡潔で効率的   | 少数 | Apple, Spotify, The New York Times |
+
+### 6. 実装パターン比較
+
+#### 6.1 フォーム処理
+
+##### React
+```jsx title="React のフォーム処理"
+import { useState } from 'react';
+
+function SimpleForm() {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: ''
+  });
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    console.log('フォームデータ:', formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit}>
+      <div>
+        <label>名前</label>
+        <input
+          type="text"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+        />
+      </div>
+      <div>
+        <label>メール</label>
+        <input
+          type="email"
+          name="email"
+          value={formData.email}
+          onChange={handleChange}
+        />
+      </div>
+      <button type="submit">送信</button>
+    </form>
+  );
+}
+```
+
+##### Vue
+```vue title="Vue のフォーム処理"
+<template>
+  <form @submit.prevent="handleSubmit">
+    <div>
+      <label>名前</label>
+      <input
+        type="text"
+        v-model="formData.name"
+      />
+    </div>
+    <div>
+      <label>メール</label>
+      <input
+        type="email"
+        v-model="formData.email"
+      />
+    </div>
+    <button type="submit">送信</button>
+  </form>
+</template>
+
+<script setup>
+import { reactive } from 'vue';
+
+const formData = reactive({
+  name: '',
+  email: ''
+});
+
+const handleSubmit = () => {
+  console.log('フォームデータ:', formData);
+};
+</script>
+```
+
+##### Svelte
+```svelte title="Vue のフォーム処理"
+<script>
+  let formData = {
+    name: '',
+    email: ''
+  };
+
+  function handleSubmit() {
+    console.log('フォームデータ:', formData);
+  }
+</script>
+
+<form on:submit|preventDefault={handleSubmit}>
+  <div>
+    <label>名前</label>
+    <input
+      type="text"
+      bind:value={formData.name}
+    />
+  </div>
+  <div>
+    <label>メール</label>
+    <input
+      type="email"
+      bind:value={formData.email}
+    />
+  </div>
+  <button type="submit">送信</button>
+</form>
+```
+
+#### 6.2 非同期データ取得
+
+##### React
+```jsx title="React の非同期データ取得"
+import { useState, useEffect } from 'react';
+
+function UserList() {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('https://api.example.com/users');
+
+        if (!response.ok) {
+          throw new Error('ネットワークエラー');
+        }
+
+        const data = await response.json();
+        setUsers(data);
+        setError(null);
+      } catch (err) {
+        setError(err.message);
+        setUsers([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
+  if (loading) return <div>読み込み中...</div>;
+  if (error) return <div>エラー: {error}</div>;
+
+  return (
+    <ul>
+      {users.map(user => (
+        <li key={user.id}>{user.name}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+##### Vue
+```vue title="Vue の非同期データ取得"
+<template>
+  <div v-if="loading">読み込み中...</div>
+  <div v-else-if="error">エラー: {{ error }}</div>
+  <ul v-else>
+    <li v-for="user in users" :key="user.id">{{ user.name }}</li>
+  </ul>
+</template>
+
+<script setup>
+import { ref, onMounted } from 'vue';
+
+const users = ref([]);
+const loading = ref(true);
+const error = ref(null);
+
+onMounted(async () => {
+  try {
+    const response = await fetch('https://api.example.com/users');
+
+    if (!response.ok) {
+      throw new Error('ネットワークエラー');
+    }
+
+    users.value = await response.json();
+  } catch (err) {
+    error.value = err.message;
+  } finally {
+    loading.value = false;
+  }
+});
+</script>
+```
+
+##### Svelte
+```svelte title="Svelte の非同期データ取得"
+<script>
+  import { onMount } from 'svelte';
+
+  let users = [];
+  let loading = true;
+  let error = null;
+
+  onMount(async () => {
+    try {
+      const response = await fetch('https://api.example.com/users');
+
+      if (!response.ok) {
+        throw new Error('ネットワークエラー');
+      }
+
+      users = await response.json();
+    } catch (err) {
+      error = err.message;
+    } finally {
+      loading = false;
+    }
+  });
+</script>
+
+{#if loading}
+  <div>読み込み中...</div>
+{:else if error}
+  <div>エラー: {error}</div>
+{:else}
+  <ul>
+    {#each users as user (user.id)}
+      <li>{user.name}</li>
+    {/each}
+  </ul>
+{/if}
+```
+
+### 7. 選択ガイド
+
+#### 7.1 フレームワーク選定の判断基準
+
+| 基準 | React | Vue | Svelte |
+|------|-------|-----|--------|
+| 大規模アプリ適合性 | ★★★★★ | ★★★★☆ | ★★★☆☆ |
+| 小規模アプリ適合性 | ★★★☆☆ | ★★★★☆ | ★★★★★ |
+| パフォーマンス | ★★★★☆ | ★★★★☆ | ★★★★★ |
+| バンドルサイズ | ★★☆☆☆ | ★★★☆☆ | ★★★★★ |
+| 学習曲線 | ★★★☆☆ | ★★★★☆ | ★★★★★ |
+| エコシステム | ★★★★★ | ★★★★☆ | ★★★☆☆ |
+| 企業採用 | ★★★★★ | ★★★★☆ | ★★★☆☆ |
+| 静的型付け | ★★★★☆ | ★★★★☆ | ★★★☆☆ |
+| コードの簡潔さ | ★★★☆☆ | ★★★★☆ | ★★★★★ |
+
+#### 7.2 特に適したユースケース
+
+##### Reactが最適な場合
+- 大規模で複雑なアプリケーション
+- 広範なエコシステムの恩恵を受けたい場合
+- コンポーネントを細かく制御したい場合
+- 関数型プログラミングのアプローチを好む場合
+- TypeScriptとの強固な統合が必要な場合
+
+##### Vueが最適な場合
+- 中小規模のアプリケーション
+- HTMLテンプレートの直感的な構文を好む場合
+- 段階的な採用が必要な場合（既存システムへの導入）
+- オプションAPIとComposition APIの選択肢が欲しい場合
+- フレームワークの多くの部分が公式に統合されていることを好む場合
+
+##### Svelteが最適な場合
+- 小中規模のアプリケーション
+- パフォーマンスとバンドルサイズが最優先の場合
+- シンプルで直感的なコードを書きたい場合
+- 少ないボイラープレートコードでアプリを構築したい場合
+- 従来のHTML/CSS/JSの書き方に近いアプローチを好む場合
+
+---
+
+### 8. まとめ
+
+React、Vue、Svelteはそれぞれ異なる設計哲学と強みを持っており、どれが「最良」かは使用するコンテキストに大きく依存します。
+
+- **React** は最も成熟したエコシステムと企業採用率を誇り、大規模アプリケーションに適していますが、より明示的なコードが必要です。
+- **Vue** は直感的なAPI、段階的採用の容易さ、公式ツールの統合性において優れており、バランスの取れた選択肢です。
+- **Svelte** はコンパイラアプローチにより最小限のランタイムコードを生成し、パフォーマンスとコードの簡潔さで際立っていますが、エコシステムはまだ発展中です。
+
+どのフレームワークも優れたツールであり、プロジェクトの要件、チームの経験、個人の好みに基づいて選択するのが最善です。
+多くの場合、技術的な違いよりも、チームの経験やプロジェクトの具体的な要件が選択を左右する決定的な要因となります。
