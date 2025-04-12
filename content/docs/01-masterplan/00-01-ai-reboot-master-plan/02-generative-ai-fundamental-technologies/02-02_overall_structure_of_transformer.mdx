@@ -1,0 +1,298 @@
+---
+title: Transformer の全体構造
+description: The Overall Structure of the Transformer
+icon: Rotate3d
+---
+
+## Transformer の全体構造：モジュール構成と処理フロー
+
+### 🔑 エグゼクティブサマリー
+
+Transformer アーキテクチャは、自然言語処理において革新的な成果をもたらした深層学習モデルです。
+本ドキュメントでは、Transformer の基本構造、モジュール構成、および処理フローについて詳細に説明します。
+
+Encoder-Decoder 構造、Self-Attention メカニズム、および Feed-Forward ネットワークなど、Transformer の主要コンポーネントを理解することで、
+この強力なモデルの動作原理を把握できます。
+
+### はじめに
+
+#### 想定読者
+
+本ドキュメントは以下の読者を想定しています。
+
+- 機械学習やディープラーニングの基礎知識を持つエンジニアや研究者
+- 自然言語処理（NLP）モデルの仕組みに興味がある方
+- Transformer ベースのモデル（BERT、GPT など）の基盤を理解したい方
+
+#### Transformer の概要
+
+Transformer は 2017 年に Google の研究チームによって論文「Attention Is All You Need」で発表された深層学習アーキテクチャです。
+従来の RNN（Recurrent Neural Network）や CNN（Convolutional Neural Network）とは異なり、
+再帰的な構造を用いず、「Self-Attention」と呼ばれるメカニズムを中心に構築されています。
+
+これにより、長距離依存関係の学習が容易になり、並列処理が可能になりました。
+
+### Transformer の基本構造
+
+Transformer の基本構造は以下の通りです。
+
+- **Encoder**：入力シーケンスを処理する部分
+- **Decoder**：Encoder からの情報を基に出力シーケンスを生成する部分
+
+import { Mermaid } from "@/components/mdx/mermaid";
+
+<Mermaid chart={`
+graph TD
+    subgraph Transformer
+        subgraph Encoder[Encoderスタック]
+            E1[Encoderレイヤー 1]
+            E2[Encoderレイヤー 2]
+            E3[...レイヤー N]
+            E1 --> E2 --> E3
+        end
+        subgraph Decoder[Decoderスタック]
+            D1[Decoderレイヤー 1]
+            D2[Decoderレイヤー 2]
+            D3[...レイヤー N]
+            D1 --> D2 --> D3
+        end
+        Input[入力シーケンス] --> Encoder
+        Encoder --> Decoder
+        Decoder --> Output[出力シーケンス]
+    end
+    style Encoder fill:#7FB3D5,stroke:#2874A6,color:#000
+    style Decoder fill:#F5B041,stroke:#B9770E,color:#000
+    style Input fill:#D5F5E3,stroke:#186A3B,color:#000
+    style Output fill:#D5F5E3,stroke:#186A3B,color:#000
+`} />
+
+### Encoder の詳細構造
+
+各 Encoder レイヤーは主に 2 つのサブレイヤーで構成されています。
+
+1. **Multi-Head Self-Attention**：入力シーケンスの各要素間の関連性を計算
+2. **Position-wise Feed-Forward Network**：各位置ごとに独立して適用される全結合ネットワーク
+
+<Mermaid chart={`
+graph TD
+    Input[入力] --> Add1[Add & Norm]
+    MHSA[Multi-Head Self-Attention] --> Add1
+    Add1 --> Add2[Add & Norm]
+    FFN[Feed-Forward Network] --> Add2
+    Add2 --> Output[出力]
+
+    style Input fill:#D5F5E3,stroke:#186A3B,color:#000
+    style MHSA fill:#7FB3D5,stroke:#2874A6,color:#000
+    style FFN fill:#F5B041,stroke:#B9770E,color:#000
+    style Add1 fill:#D7BDE2,stroke:#7D3C98,color:#000
+    style Add2 fill:#D7BDE2,stroke:#7D3C98,color:#000
+    style Output fill:#D5F5E3,stroke:#186A3B,color:#000
+`} />
+
+#### Multi-Head Self-Attention の基本概念
+
+Self-Attention は、シーケンス内の各要素が他のすべての要素にどれだけ「注意」を払うべきかを計算するメカニズムです。
+これにより、単語間の関係性や文脈を捉えることができます。
+
+<Mermaid chart={`
+graph TD
+    Input[入力ベクトル] --> Q[Queryベクトル]
+    Input --> K[Keyベクトル]
+    Input --> V[Valueベクトル]
+
+    Q --> QK[Q・K^T計算]
+    K --> QK
+    QK --> Scale[スケーリング]
+    Scale --> Softmax[Softmax関数]
+    Softmax --> WeightedSum[加重和計算]
+    V --> WeightedSum
+    WeightedSum --> Output[出力]
+
+    style Input fill:#D5F5E3,stroke:#186A3B,color:#000
+    style Q fill:#7FB3D5,stroke:#2874A6,color:#000
+    style K fill:#7FB3D5,stroke:#2874A6,color:#000
+    style V fill:#7FB3D5,stroke:#2874A6,color:#000
+    style QK fill:#F5B041,stroke:#B9770E,color:#000
+    style Scale fill:#F5B041,stroke:#B9770E,color:#000
+    style Softmax fill:#F5B041,stroke:#B9770E,color:#000
+    style WeightedSum fill:#F5B041,stroke:#B9770E,color:#000
+    style Output fill:#D5F5E3,stroke:#186A3B,color:#000
+`} />
+
+Self-Attention の基本的な概念は以下の通りです。
+
+1. 入力ベクトルから **Query**（Q）、**Key**（K）、**Value**（V）の 3 つのベクトルを生成
+2. Q と K の内積から注意スコアを計算
+3. 注意スコアを用いて V の加重和を計算
+
+Multi-Head Attention では、このプロセスを複数回（ヘッド数分）並列に実行し、結果を結合します。
+
+<Callout type="warn" title="注">
+Attention の詳細な内部構造、計算式、各種変種、位置情報の具体的な扱いについては、
+次の学習トピック「Attention の内部機構: 各種 Attention と位置情報の扱い」で詳しく学習します。
+</Callout>
+
+#### Position-wise Feed-Forward Network
+
+各位置ごとに独立して適用される 2 層の全結合ネットワークです。
+
+```
+FFN(x) = max(0, xW₁ + b₁)W₂ + b₂
+```
+
+この層は、各トークンの表現を豊かにする役割を果たします。
+
+### Decoder の詳細構造
+
+Decoder は Encoder と類似していますが、以下の 3 つのサブレイヤーで構成されています。
+
+1. **Masked Multi-Head Self-Attention**：未来の情報を見ないようにマスクする Attention
+2. **Encoder-Decoder Attention**：Encoder の出力を考慮する Attention
+3. **Position-wise Feed-Forward Network**：Encoder と同様の全結合ネットワーク
+
+<Mermaid chart={`
+graph TD
+    Input[入力] --> Add1[Add & Norm]
+    MMHSA[Masked Multi-Head Self-Attention] --> Add1
+    Add1 --> Add2[Add & Norm]
+    EDA[Encoder-Decoder Attention] --> Add2
+    Add2 --> Add3[Add & Norm]
+    FFN[Feed-Forward Network] --> Add3
+    Add3 --> Output[出力]
+
+    style Input fill:#D5F5E3,stroke:#186A3B,color:#000
+    style MMHSA fill:#7FB3D5,stroke:#2874A6,color:#000
+    style EDA fill:#AED6F1,stroke:#2E86C1,color:#000
+    style FFN fill:#F5B041,stroke:#B9770E,color:#000
+    style Add1 fill:#D7BDE2,stroke:#7D3C98,color:#000
+    style Add2 fill:#D7BDE2,stroke:#7D3C98,color:#000
+    style Add3 fill:#D7BDE2,stroke:#7D3C98,color:#000
+    style Output fill:#D5F5E3,stroke:#186A3B,color:#000
+`} />
+
+#### Masked Multi-Head Self-Attention
+
+通常の Self-Attention の変種で、自動回帰的な生成を可能にするために、現在の位置より後ろの位置にある要素を見ないようにマスク処理を行います。
+これにより、モデルは過去の情報のみを使用して次のトークンを予測することができます。
+
+#### Encoder-Decoder Attention
+
+Decoder が Encoder の出力情報を利用するための Attention 機構です。Query は Decoder から来て、Key と Value は Encoder の出力から来ます。
+この Cross-Attention と呼ばれることもある機構により、Decoder は入力シーケンスの情報を考慮しながら出力を生成できます。
+
+<Callout type="warn" title="注">
+これらの Attention 変種の具体的な計算方法や特性、それぞれの使用場面については、
+次の学習トピック「Attention の内部機構: 各種 Attention と位置情報の扱い」で詳細に解説されます。
+</Callout>
+
+### Transformer の処理フロー
+
+Transformer の全体的な処理フローは以下の通りです。
+
+<Mermaid chart={`
+graph TD
+    Input[入力トークン] --> Embed[単語埋め込み]
+    Embed --> PosEnc[位置エンコーディング]
+    PosEnc --> EncStack[Encoderスタック]
+
+    EncOut[Encoder出力] --> DecAttn[Encoder-Decoder Attention]
+
+    TgtInput[出力トークン] --> TgtEmbed[単語埋め込み]
+    TgtEmbed --> TgtPosEnc[位置エンコーディング]
+    TgtPosEnc --> MaskAttn[Masked Self-Attention]
+    MaskAttn --> DecAttn
+    DecAttn --> DecFFN[Decoder Feed-Forward]
+    DecFFN --> Linear[線形層]
+    Linear --> Softmax[Softmax]
+    Softmax --> Output[出力確率]
+
+    style Input fill:#D5F5E3,stroke:#186A3B,color:#000
+    style Embed fill:#7FB3D5,stroke:#2874A6,color:#000
+    style PosEnc fill:#7FB3D5,stroke:#2874A6,color:#000
+    style EncStack fill:#7FB3D5,stroke:#2874A6,color:#000
+    style EncOut fill:#7FB3D5,stroke:#2874A6,color:#000
+    style TgtInput fill:#D5F5E3,stroke:#186A3B,color:#000
+    style TgtEmbed fill:#F5B041,stroke:#B9770E,color:#000
+    style TgtPosEnc fill:#F5B041,stroke:#B9770E,color:#000
+    style MaskAttn fill:#F5B041,stroke:#B9770E,color:#000
+    style DecAttn fill:#F5B041,stroke:#B9770E,color:#000
+    style DecFFN fill:#F5B041,stroke:#B9770E,color:#000
+    style Linear fill:#F5B041,stroke:#B9770E,color:#000
+    style Softmax fill:#F5B041,stroke:#B9770E,color:#000
+    style Output fill:#D5F5E3,stroke:#186A3B,color:#000
+`} />
+
+#### 入力処理
+
+1. **トークン化**：入力テキストを単語やサブワードなどのトークンに分割
+2. **埋め込み（Embedding）**：各トークンを固定長のベクトルに変換
+3. **位置エンコーディング**：シーケンス内の位置情報を追加
+
+<Callout type="warn" title="注">
+位置エンコーディングの詳細な実装方法（正弦波ベースのエンコーディングや学習可能な位置埋め込みなど）やその重要性については、
+次の学習トピック「Attention の内部機構: 各種 Attention と位置情報の扱い」で詳しく説明されます。
+</Callout>
+
+#### Encoder 処理
+
+1. 位置情報が付加された埋め込みベクトルが Encoder に入力
+2. 各 Encoder レイヤーで Self-Attention と Feed-Forward 処理を実行
+3. 最終的な Encoder 出力が Decoder に渡される
+
+#### Decoder 処理
+
+1. 出力シーケンス（学習時は正解、推論時は生成済みトークン）が Decoder に入力
+2. Masked Self-Attention で自身のシーケンスを処理
+3. Encoder-Decoder Attention で Encoder の出力を考慮
+4. Feed-Forward ネットワークで処理
+5. 線形層と Softmax 関数で次のトークンの確率分布を生成
+
+### Transformer の特徴と利点
+
+Transformer アーキテクチャの主な特徴と利点は以下の通りです。
+
+- **並列処理**：RNN と異なり、シーケンス内のすべての位置を並列に処理できるため、トレーニングが高速
+- **長距離依存関係**：Self-Attention メカニズムにより、シーケンス内の離れた位置間の関係を効率的に学習
+- **スケーラビリティ**：モデルサイズとデータ量を増やすことで性能が向上する傾向がある
+
+### 応用例
+
+Transformer アーキテクチャは以下のような多くのモデルの基盤となっています。
+
+- **BERT**：Encoder のみを使用した双方向モデル（文書理解タスクに最適）
+- **GPT**：Decoder のみを使用した自己回帰モデル（テキスト生成タスクに最適）
+- **T5**：Encoder-Decoder 構造を持つ統合モデル（多様な NLP タスクに対応）
+
+### まとめ
+
+Transformer アーキテクチャは、Self-Attention メカニズムを核として、従来の RNN や CNN に代わる強力な深層学習モデルとなっています。
+その並列処理能力と長距離依存関係の学習能力により、自然言語処理のさまざまなタスクで優れた性能を発揮しています。
+
+BERT や GPT などの派生モデルの成功により、Transformer は現代の NLP の中心的な存在となっています。
+
+### 次のステップ：Attention の内部機構について
+
+本ドキュメントでは Transformer の全体構造について概観しましたが、その核となる Attention メカニズムについては基本的な概念のみを紹介しました。
+次の学習トピックである「Attention の内部機構: 各種 Attention と位置情報の扱い」では、以下の点について詳細に学習することをお勧めします。
+
+- Attention の数学的定義と計算式の詳細
+- Scaled Dot-Product Attention、Additive Attention などの各種 Attention バリエーション
+- Multi-Head Attention の詳細な仕組みとその利点
+- Positional Encoding の実装方法（正弦波ベースと学習型）とその理論的背景
+- 相対位置エンコーディングなどの位置情報の高度な扱い方
+- 様々な Attention マスキング技術とその応用
+
+これらのトピックを理解することで、Transformer アーキテクチャの核心部分をより深く把握することができるでしょう。
+
+### 用語解説
+
+| 用語 | 説明 |
+|------|------|
+| Self-Attention | シーケンス内の各要素が他のすべての要素にどれだけ「注意」を払うべきかを計算するメカニズム |
+| Multi-Head Attention | 複数の Self-Attention を並列に計算し、結果を結合する機構 |
+| Encoder | 入力シーケンスを処理する Transformer の一部 |
+| Decoder | 出力シーケンスを生成する Transformer の一部 |
+| Feed-Forward Network | 各位置ごとに独立して適用される全結合ネットワーク |
+| Positional Encoding | Transformer にシーケンスの位置情報を提供するエンコーディング |
+| Masked Self-Attention | 自己回帰的な生成を可能にするために未来の情報を見ないようにマスクする Attention |
+| Encoder-Decoder Attention | Decoder が Encoder の出力情報を利用するための Attention 機構 |

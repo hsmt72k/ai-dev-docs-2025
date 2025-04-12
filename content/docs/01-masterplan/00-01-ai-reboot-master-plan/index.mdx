@@ -25,7 +25,7 @@ icon: ListChecks
 
 - [**Infrastructure as Code (IaC)**](./00-01-ai-reboot-master-plan/01-foundational-technologies-and-development-environments/02-01_infrastructure_as_code): インフラ構成の宣言的管理
 - [**GitOps**](./00-01-ai-reboot-master-plan/01-foundational-technologies-and-development-environments/02-02_git_ops): Gitリポジトリをシステム構成の単一真実源として活用
-- [**カナリアデプロイメント**](./00-01-ai-reboot-master-plan/01-foundational-technologies-and-development-environments/02-03_canary_deployment): AI機能の段階的リリースと評価
+- [**カナリアデプロイメント**](./00-01-ai-reboot-master-plan/01-foundational-technologies-and-development-environments/02-03_canary_deployment): AI 機能の段階的リリースと評価
 - [**品質ゲート**](./00-01-ai-reboot-master-plan/01-foundational-technologies-and-development-environments/02-04_quality_gate): デプロイ前のAI性能とセキュリティの自動評価
 - [**継続的インテグレーション/デリバリ (CI/CD)**](./00-01-ai-reboot-master-plan/01-foundational-technologies-and-development-environments/02-05_ci_cd): AIパイプラインの自動化
 
@@ -37,31 +37,47 @@ icon: ListChecks
 - [**モニタリングとオブザーバビリティ**](./00-01-ai-reboot-master-plan/01-foundational-technologies-and-development-environments/03-04_monitoring_and_observability): AIモデル推論の監視とパフォーマンス分析
 - [**障害耐性設計**](./00-01-ai-reboot-master-plan/01-foundational-technologies-and-development-environments/03-05_design_or_fault_tolerance): AIサービス停止時のグレースフルデグラデーション
 
-### 2. 生成AI基盤技術
+### 2. 生成 AI 基盤技術
 
-#### 2.1 LLM基礎知識
+#### 2.0 AI の歴史と発展
 
-- **LLMの基本原理**: トークン化、コンテキストウィンドウ、推論の仕組み
+- **初期のAIの誕生と基礎理論 (1950 〜 1960年代)**: AIの初期の概念と理論。
+- **AIの冬とその原因 (1970 〜 1990年代)**: AI の停滞期、計算資源の不足や理論的限界
+- **機械学習と深層学習の復活 (2000年代以降)**: 計算能力の向上と大規模データによる変化
+- **大規模データと Transformer アーキテクチャの登場 (2010年代)**: Transformer モデルの登場とその進化
+- **生成 AI の台頭**: 大規模言語モデル（LLM）の登場とその応用領域
+
+#### 2.1 機械学習とディープラーニングの基礎
+
+- **機械学習の基本概念**: 教師あり学習、教師なし学習、強化学習
+- **ディープラーニングの基本概念**: ニューラルネットワーク、バックプロパゲーション
+- **CNN (畳み込みニューラルネットワーク)**: 画像処理や特徴抽出のためのアーキテクチャ
+- **RNN (リカレントニューラルネットワーク)**: 時系列データ処理のためのアーキテクチャ
+- **GAN (生成的敵対ネットワーク)**: 画像生成やデータ生成のための技術
+
+#### 2.2 LLM 基礎知識（理論理解・構造）
+
+- [**LLM の基本原理**](./00-01-ai-reboot-master-plan/02-generative-ai-fundamental-technologies/02-01_basic_principles_of_llm): トークン化、コンテキストウィンドウ、推論の仕組み
+- [**Transformer の全体構造**](./00-01-ai-reboot-master-plan/02-generative-ai-fundamental-technologies/02-02_overall_structure_of_transformer): モジュール構成と処理フロー
+- **Attention の内部機構**: 各種 Attention と位置情報の扱い
+- **学習パラダイムの基礎**: 事前学習と微調整の違いと役割
+- **評価手法の基礎**: 出力品質と適合性の評価指標
+
+#### 2.3 LLM 応用・実践技術（活用・改善）
+
 - **プロンプトエンジニアリング**: 効果的な指示設計、フォーマット制御、出力制御
-- **RAG（検索拡張生成）**: ベクトル検索、埋め込み生成、コンテキスト結合
-- **ファインチューニング**: 目的別モデル調整、PEFT手法の基礎
-- **評価手法**: LLM出力の質と適合性の測定方法
+- **RAG（検索拡張生成）**: ベクトル検索、埋め込み生成、外部知識との結合
+- **ファインチューニング技術と PEFT の実践**: LoRA、Adapter、Prefix Tuning などの軽量手法
+- **モデル AB テストとマルチアーム設計**: フォールバック、実験設計、多モデル切り替え戦略
+- **モデルバージョン管理とデプロイ**: カナリアリリース、ブルー/グリーンデプロイ、運用戦略
 
-#### 2.2 モデル管理と最適化
+#### 2.4 分散モデル実行と最適化基盤（ハードウェア・インフラ視点）
 
-- **モデルコントロールプレーン(MCP)**: モデルルーティング、負荷分散
-- **モデルデプロイメント**: オンプレミスとクラウドの併用戦略
-- **モデルAB/マルチアーム設計**: 複数モデル切り替え、フォールバック
-- **推論最適化**: 量子化、プルーニング、バッチ処理の実装
-- **モデルバージョン管理**: カナリアリリース、ブルー/グリーンデプロイ
-
-#### 2.3 分散モデル実行環境
-
-- **ローカルモデル運用**: llama.cpp、Ollama、LocalAIの構築と最適化
-- **エッジAI実装**: オンデバイス推論、モデル圧縮、オフライン処理
+- **ローカルモデル運用**: ローカル環境でのモデル推論実現のアーキテクチャ設計と最適化手法
+- **エッジ AI 実装**: オンデバイス推論、モデル圧縮、オフライン処理
 - **ハイブリッドデプロイメント**: ローカルモデルとクラウドモデルの使い分け
-- **推論アクセラレーション**: CPU/GPU/NPU最適化、バッチ処理、キャッシュ戦略
-- **エッジ-クラウド協調戦略**: 処理負荷の分散設計
+- **推論アクセラレーション**: バッチ処理、量子化、プルーニング、NPU/GPU活用、キャッシュ戦略
+- **モデルコントロールプレーン (MCP)**: モデルルーティング、負荷分散、自動切り替え
 
 ### 3. AIシステム統合アーキテクチャ
 
