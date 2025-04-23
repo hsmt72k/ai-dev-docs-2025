@@ -1,7 +1,1185 @@
 ---
 title: API 設計と管理
-description: Type-safe API design
+description: API Design and Management
 icon: FlagTriangleRight
 ---
 
 import { Mermaid } from "@/components/mdx/mermaid";
+
+## モダン API 設計と管理の実践ガイド
+
+### 🔑 エグゼクティブサマリー
+
+このドキュメントでは、現代のシステム統合における API 設計と管理の主要アプローチを解説しています。
+RESTful API の基本原則から始まり、GraphQL の柔軟なデータ取得モデル、
+そして複数 API を効率的に管理するための API ゲートウェイの活用法まで、体系的に説明します。
+
+各アプローチの特徴、利点、適用シナリオを理解することで、システム要件に最適な API 戦略を選択・実装できるようになります。
+セキュリティ対策と実践的なユースケースも含め、API 設計の包括的なガイドを提供します。
+
+### 想定読者と対象システム
+
+**想定読者**:
+- システムアーキテクト
+- バックエンド開発者
+- フロントエンド開発者（API 連携部分担当）
+- テクニカルリード
+- DevOps エンジニア
+- セキュリティ担当者
+
+**対象システム規模**:
+- 中小規模から大規模エンタープライズシステム
+- マイクロサービスアーキテクチャ
+- クラウドネイティブアプリケーション
+- AI 機能統合システム
+- ハイブリッド環境（オンプレミス + クラウド）
+
+### 📡 RESTful API の基本設計
+
+RESTful API（Representational State Transfer）は、
+Web サービス設計のためのアーキテクチャスタイルであり、HTTP プロトコルの基本原則に基づいています。
+
+#### RESTful 設計の主要原則
+
+- **リソース指向**: すべてのものをリソースとして表現
+- **ステートレス通信**: 各リクエストが独立していて、状態を保持しない
+- **統一インターフェース**: HTTP メソッドと URI による一貫したインターフェース
+- **HATEOAS**: Hypermedia as the Engine of Application State
+
+#### RESTful API 設計チェックリスト
+
+| チェック項目 | 説明 | 例 |
+|------------|------|-----|
+| 📌 リソース命名 | 複数形の名詞を使用 | `/users`, `/products` |
+| 📌 HTTP メソッド | 適切なメソッドを使用 | GET(読取), POST(作成), PUT(更新), DELETE(削除) |
+| 📌 ステータスコード | 正しい HTTP ステータスを返す | 200(OK), 201(Created), 400(Bad Request) |
+| 📌 クエリパラメータ | フィルタリング/ソート/ページネーション | `/users?role=admin&sort=name` |
+| 📌 バージョニング | API のバージョン管理 | `/api/v1/users` |
+| 📌 エラーレスポンス | 一貫した形式のエラー情報 | `{"error": "Invalid input", "code": "E1001"}` |
+| 📌 ドキュメント | OpenAPI/Swagger による記述 | `swagger.yml` ファイルの作成・管理 |
+
+#### RESTful API の利点と課題
+
+**利点**:
+- 単純で直感的な設計
+- HTTP の標準機能を活用
+- キャッシュが容易
+- スケーラビリティの高さ
+- 広範な開発者エコシステム
+
+**課題**:
+- オーバーフェッチング（必要以上のデータ取得）
+- アンダーフェッチング（複数のリクエストが必要）
+- エンドポイント増加によるメンテナンス複雑化
+- バージョン管理の難しさ
+
+#### RESTful API ユースケース：ECサイトシステム
+
+この REST API エンドポイント一覧を表形式に整理すると、以下のようになります。
+
+| API カテゴリ | HTTP メソッド | エンドポイント | 説明 |
+|------------|-------------|--------------|------|
+| **商品カタログ** | GET | `/api/v1/products` | 商品一覧取得 |
+| | GET | `/api/v1/products?category=books` | カテゴリでフィルタリング |
+| | GET | `/api/v1/products/123` | 特定商品の詳細 |
+| | POST | `/api/v1/products` | 新商品登録 |
+| | PUT | `/api/v1/products/123` | 商品情報更新 |
+| | DELETE | `/api/v1/products/123` | 商品削除 |
+| **注文管理** | GET | `/api/v1/orders` | 注文一覧取得 |
+| | GET | `/api/v1/orders/456` | 特定注文の詳細 |
+| | POST | `/api/v1/orders` | 注文作成 |
+| | PUT | `/api/v1/orders/456/status` | 注文ステータス更新 |
+| **ユーザー管理** | GET | `/api/v1/users/789` | ユーザー情報取得 |
+| | GET | `/api/v1/users/789/orders` | ユーザーの注文履歴 |
+
+この表形式にすることで、各 API エンドポイントの役割や構造がより明確になり、ドキュメントとしての可読性が向上します。
+
+上記 ECサイトの場合、ユーザーの注文履歴と各注文の商品詳細を一度に取得するには、複数の API 呼び出しが必要になります（RESTの制約）。
+
+### 🔍 GraphQL による柔軟なデータ取得
+
+GraphQL は Facebook によって開発されたクエリ言語およびランタイムで、クライアントが必要とするデータを正確に指定できる API を提供します。
+
+#### GraphQL の主要概念
+
+- **単一エンドポイント**: 通常は `/graphql` のみ
+- **スキーマ定義**: 型システムによるデータモデル定義
+- **リゾルバー**: データ取得ロジックの実装
+- **クエリ操作**: データの読み取り
+- **ミューテーション操作**: データの作成・更新・削除
+- **サブスクリプション**: リアルタイムデータ更新
+
+#### GraphQL スキーマの例
+
+```graphql
+type User {
+  id: ID!
+  name: String!
+  email: String!
+  orders: [Order!]
+}
+
+type Product {
+  id: ID!
+  name: String!
+  price: Float!
+  description: String
+  category: String
+  inStock: Boolean!
+}
+
+type Order {
+  id: ID!
+  date: String!
+  status: OrderStatus!
+  items: [OrderItem!]!
+  user: User!
+  totalAmount: Float!
+}
+
+type OrderItem {
+  product: Product!
+  quantity: Int!
+  unitPrice: Float!
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+type Query {
+  user(id: ID!): User
+  product(id: ID!): Product
+  products(category: String, inStock: Boolean): [Product!]!
+  order(id: ID!): Order
+}
+
+type Mutation {
+  createOrder(userId: ID!, items: [OrderItemInput!]!): Order!
+  updateOrderStatus(id: ID!, status: OrderStatus!): Order!
+}
+
+input OrderItemInput {
+  productId: ID!
+  quantity: Int!
+}
+```
+
+#### GraphQL クエリの例（ECサイトの注文詳細取得）
+
+```graphql
+query GetUserOrderDetails($userId: ID!) {
+  user(id: $userId) {
+    name
+    email
+    orders {
+      id
+      date
+      status
+      totalAmount
+      items {
+        quantity
+        unitPrice
+        product {
+          name
+          description
+          category
+        }
+      }
+    }
+  }
+}
+```
+
+この単一のクエリで、ユーザー情報、注文一覧、各注文の商品詳細をまとめて取得できます。
+
+#### REST vs GraphQL：データ取得方法の比較
+
+GraphQL はクライアント主導のデータ取得を実現しますが、RESTful API でも以下のようなアプローチでまとめてデータを取得することは可能です。
+
+1. **拡張リソースパターン**:
+   ```
+   GET /api/v1/users/123?include=orders,orders.items,orders.items.product
+   ```
+   クエリパラメータで関連データの取得を指定し、レスポンスにネストされたデータを含めます。
+
+2. **専用エンドポイントパターン**:
+   ```
+   GET /api/v1/users/123/full-profile
+   ```
+   特定のユースケース向けに最適化された専用エンドポイントを用意します。
+
+3. **バッチリクエストパターン**:
+   ```
+   POST /api/v1/batch
+   {
+     "requests": [
+       { "path": "/users/123" },
+       { "path": "/users/123/orders" },
+       { "path": "/products?ids=456,789" }
+     ]
+   }
+   ```
+   複数のリクエストを1回のHTTPリクエストにまとめます。
+
+REST と GraphQL の本質的な違いは、データ取得の**柔軟性と制御の所在**にあります。
+
+| 側面 | REST | GraphQL |
+|-----|------|---------|
+| **データ構造の定義** | サーバー側で定義 | クライアント側で指定 |
+| **エンドポイント** | リソースごとに固定 | 単一エンドポイント |
+| **フィールド選択** | 事前定義またはカスタムパラメータ | クエリごとに自由に選択 |
+| **関連データ取得** | 拡張リソースまたは複数リクエスト | クエリ内でネスト |
+| **スキーマ変更** | エンドポイント追加/変更が必要 | クエリのみ変更で対応可能 |
+| **クライアント多様性対応** | 複数のエンドポイントまたはカスタマイズ | 同一スキーマで異なるクエリ |
+
+RESTの拡張アプローチは一定の柔軟性を提供しますが、多様なクライアントニーズへの対応やフロントエンド要件の頻繁な変更がある場合は、
+GraphQLの柔軟性がより大きな価値を発揮します。一方、単純なデータモデルや標準的なCRUD操作が中心の場合はRESTの単純さが優位です。
+
+<Mermaid chart={`
+graph TD
+    subgraph REST["REST API アーキテクチャ"]
+        R1[クライアント] --> |GET /users/1| R2[ユーザーエンドポイント]
+        R1 --> |GET /users/1/posts| R3[投稿エンドポイント]
+        R1 --> |GET /users/1/followers| R4[フォロワーエンドポイント]
+    end
+
+    style REST fill:transparent,stroke:transparent
+    style R1 fill:#87CEFA,stroke:#0047AB,color:#000
+    style R2 fill:#90EE90,stroke:#006400,color:#000
+    style R3 fill:#90EE90,stroke:#006400,color:#000
+    style R4 fill:#90EE90,stroke:#006400,color:#000
+`} />
+
+<Mermaid chart={`
+graph TD
+    subgraph GraphQL["GraphQL アーキテクチャ"]
+        G1[クライアント] --> |単一リクエスト| G2[GraphQL エンドポイント]
+        G2 --> G3[ユーザーリゾルバー]
+        G2 --> G4[投稿リゾルバー]
+        G2 --> G5[フォロワーリゾルバー]
+    end
+
+    style GraphQL fill:transparent,stroke:transparent
+    style G1 fill:#87CEFA,stroke:#0047AB,color:#000
+    style G2 fill:#DDA0DD,stroke:#8B008B,color:#000
+    style G3 fill:#90EE90,stroke:#006400,color:#000
+    style G4 fill:#90EE90,stroke:#006400,color:#000
+    style G5 fill:#90EE90,stroke:#006400,color:#000
+`} />
+
+<div className="text-slate-400">
+*図1: REST vs GraphQL 比較図*
+</div>
+
+#### GraphQL の利点と課題
+
+**利点**:
+- クライアント側で必要なデータのみを指定可能
+- オーバーフェッチングとアンダーフェッチングの解消
+- 強力な型システム
+- イントロスペクション機能によるドキュメント自動生成
+- フロントエンド開発の効率化
+
+**課題**:
+- バックエンド実装の複雑さ
+- キャッシュ戦略の複雑化
+- ファイルアップロードなどの特定操作の標準化の欠如
+- パフォーマンス最適化の必要性（N+1問題など）
+
+### 🌉 API ゲートウェイによる統合管理
+
+API ゲートウェイは、クライアントとバックエンドサービス間の仲介として機能し、
+複数の API を統合的に管理するためのインフラストラクチャです。
+
+<Mermaid chart={`
+graph TD
+    A[クライアント] --> B[API ゲートウェイ]
+    B --> C[認証サービス]
+    B --> D[サービス A\nREST API]
+    B --> E[サービス B\nGraphQL API]
+    B --> F[サービス C\ngRPC]
+    B --> G[レガシーサービス\nSOAP]
+
+    H[API 開発者ポータル] --> B
+    I[監視 & 分析] --> B
+
+    style A fill:#87CEFA,stroke:#0047AB,color:#000
+    style B fill:#FF8C00,stroke:#8B4500,color:#000
+    style C fill:#90EE90,stroke:#006400,color:#000
+    style D fill:#FFD700,stroke:#B8860B,color:#000
+    style E fill:#FF6347,stroke:#8B0000,color:#000
+    style F fill:#DDA0DD,stroke:#8B008B,color:#000
+    style G fill:#A9A9A9,stroke:#696969,color:#000
+    style H fill:#AFEEEE,stroke:#008B8B,color:#000
+    style I fill:#FFA07A,stroke:#FF4500,color:#000
+`} />
+
+<div className="text-slate-400">
+*図2: API ゲートウェイ アーキテクチャの例*
+</div>
+
+#### API ゲートウェイの主要機能
+
+- **リクエストルーティング**: クライアントリクエストを適切なサービスへ転送
+- **認証・認可**: 一元化されたセキュリティ管理
+- **レート制限**: API 使用量の制御
+- **モニタリング・分析**: API 利用状況の把握
+- **キャッシュ**: 応答時間の改善とバックエンド負荷軽減
+- **プロトコル変換**: REST から GraphQL、SOAP から REST などの変換
+- **サービスディスカバリー**: 動的なサービスエンドポイント検出
+
+#### API ゲートウェイ製品比較表
+
+| 製品名 | タイプ | 主要特徴 | 適したユースケース | 価格モデル |
+|-------|------|----------|-----------------|-----------|
+| AWS API Gateway | クラウドマネージド | Lambda 統合、CloudWatch 連携 | AWS 環境、サーバーレス | 使用量ベース |
+| Azure API Management | クラウドマネージド | Azure Functions 連携、開発者ポータル | Azure 環境、エンタープライズ | 階層型 + 使用量 |
+| Kong | オープンソース / 商用 | プラグイン拡張性、Kubernetes 対応 | マイクロサービス、ハイブリッド環境 | コミュニティ版無料、エンタープライズ版有料 |
+| Apigee | クラウドマネージド / オンプレミス | 高度な分析、API マネタイズ | 大企業、API エコノミー | 階層型サブスクリプション |
+| Tyk | オープンソース / 商用 | オンプレミス対応、多言語プラグイン | セキュリティ重視、ハイブリッド環境 | コミュニティ版無料、商用版有料 |
+| Spring Cloud Gateway | オープンソース | Spring エコシステム、Reactor 対応 | Java/Spring アプリケーション | 無料 |
+
+#### API ゲートウェイのユースケース：マイクロサービスアーキテクチャ
+
+<div className="max-w-lg mx-auto">
+  {/* 上段チャート：モバイルアプリ → API ゲートウェイ */}
+  <div className="-mb-23">
+    <Mermaid chart={`
+      flowchart TD
+          A[モバイルアプリ] --> B[API ゲートウェイ]
+          style A fill:#e3f2fd,stroke:#1565c0,color:#000
+          style B fill:transparent,stroke:transparent,color:transparent
+    `} />
+  </div>
+
+  {/* 中段チャート：API ゲートウェイを中心とした横並び構成 */}
+  <Mermaid chart={`
+    flowchart LR
+        B[開発者ポータル] --> C[API ゲートウェイ] --> D[認証サービス]
+        style B fill:#fce4ec,stroke:#ad1457,color:#000
+        style C fill:#ede7f6,stroke:#4527a0,color:#000
+        style D fill:#e8f5e9,stroke:#2e7d32,color:#000
+  `} />
+
+  {/* 下段チャート：API ゲートウェイ → 各マイクロサービス */}
+  <div className="-mt-19 ml-10">
+    <Mermaid chart={`
+      flowchart TD
+          C[API ゲートウェイ]
+          C --> E[ユーザーサービス]
+          C --> F[商品API]
+          C --> G[注文マイクロサービス]
+          style C fill:transparent,stroke:transparent,color:transparent
+          style E fill:#fff9c4,stroke:#fbc02d,color:#000
+          style F fill:#ffecb3,stroke:#ff9800,color:#000
+          style G fill:#ffe0b2,stroke:#ef6c00,color:#000
+    `} />
+  </div>
+</div>
+
+<div className="text-slate-400">
+*図1: API ゲートウェイを中心としたマイクロサービス連携構成イメージ*
+</div>
+
+このアーキテクチャでは、API ゲートウェイが以下の役割を担います。
+
+1. 認証・認可の一元管理（JWT 検証など）
+2. ルーティング（適切なマイクロサービスへ転送）
+3. レート制限（DoS 攻撃対策）
+4. 応答キャッシュ（パフォーマンス向上）
+5. API 使用状況の監視・分析
+6. クライアントへの単一インターフェース提供
+
+#### API ゲートウェイの利点と課題
+
+**利点**:
+- 異種 API の統合インターフェース提供
+- セキュリティ管理の集中化
+- トラフィック制御と監視の一元化
+- クライアント開発の簡素化
+- バックエンドサービスの保護
+
+**課題**:
+- 単一障害点となる可能性
+- 導入による複雑性の増加
+- レイテンシの追加
+- 適切な設計・スケーリングの重要性
+
+### 🔄 REST vs GraphQL vs ハイブリッドアプローチ
+
+システム要件に応じた適切な API アーキテクチャの選択は重要です。以下に各アプローチの比較と選択ガイドを示します。
+
+#### API アーキテクチャ選択マトリクス
+
+| 要件/条件 | REST | GraphQL | ハイブリッド |
+|----------|------|---------|------------|
+| **デバイス対応** |  |  |  |
+| モバイルアプリ（帯域制限） | ⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| デスクトップウェブ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| IoT デバイス（低リソース） | ⭐⭐⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐ |
+| **プロジェクト特性** |  |  |  |
+| 開発速度重視 | ⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
+| スケーラビリティ要件 | ⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐⭐ |
+| 複雑なデータ関係 | ⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| キャッシュ重要度 | ⭐⭐⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐ |
+| **チーム要因** |  |  |  |
+| フロントエンド主導開発 | ⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ |
+| バックエンド主導開発 | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | ⭐⭐⭐⭐ |
+| チーム経験・スキルセット | 一般的に高い | 比較的新しい | 両方必要 |
+| **技術的考慮事項** |  |  |  |
+| 実装の複雑さ | ⭐⭐⭐⭐⭐ (シンプル) | ⭐⭐⭐ (中程度) | ⭐⭐ (複雑) |
+| ファイルアップロード | ⭐⭐⭐⭐⭐ | ⭐⭐ | ⭐⭐⭐⭐ |
+| リアルタイム更新 | ⭐⭐ (webhooks) | ⭐⭐⭐⭐⭐ (subscriptions) | ⭐⭐⭐⭐ |
+| ドキュメント自動生成 | ⭐⭐⭐⭐ (OpenAPI) | ⭐⭐⭐⭐⭐ (イントロスペクション) | ⭐⭐⭐⭐ |
+
+#### 適した利用シナリオ
+
+**REST が適している場合**:
+- リソース指向の明確なドメインモデル
+- キャッシュが重要なシナリオ
+- 単純な CRUD 操作が中心
+- 限定的なクライアント要件
+- 公開 API 提供
+
+**GraphQL が適している場合**:
+- 複雑なデータ関係
+- 多様なクライアント（モバイル、Web、IoT など）
+- 頻繁に変化するフロントエンド要件
+- ネットワーク効率が重要なケース
+- 柔軟なデータクエリが必要
+
+**ハイブリッドアプローチが適している場合**:
+- 既存 REST API の段階的な拡張
+- 用途によって最適な技術を選択したい場合
+- 特定機能のみ GraphQL の柔軟性が必要
+- 移行期間中のシステム
+
+#### ハイブリッド実装パターン例
+
+1. **GraphQL レイヤー上の REST**
+   <Mermaid chart={`
+   flowchart LR
+       A[Client] --> B[GraphQL API] --> C[REST APIs]
+
+       style A fill:#1e88e5,stroke:#0d47a1,color:#fff
+       style B fill:#8e24aa,stroke:#4a148c,color:#fff
+       style C fill:#ef6c00,stroke:#bf360c,color:#fff
+   `} />
+   既存の REST API を活用しながら、クライアントには GraphQL インターフェースを提供
+
+2. **並列 API 公開**
+   <Mermaid chart={`
+   flowchart LR
+       A[Client] --> B[API Gateway]
+       B --> C[GraphQL API]
+       B --> D[REST API]
+
+       style A fill:#1e88e5,stroke:#0d47a1,color:#fff
+       style B fill:#43a047,stroke:#1b5e20,color:#fff
+       style C fill:#8e24aa,stroke:#4a148c,color:#fff
+       style D fill:#ef6c00,stroke:#bf360c,color:#fff
+   `} />
+   API ゲートウェイを通じて両方のインターフェースを提供し、クライアントに選択肢を与える
+
+3. **機能分割アプローチ**
+   <Mermaid chart={`
+   flowchart TB
+       A[Client]
+       A --> B[GraphQL API\\n&lpar;複雑なデータ取得&rpar;]
+       A --> C[REST API\\n&lpar;単純な CRUD、ファイルアップロード&rpar;]
+
+       style A fill:#1e88e5,stroke:#0d47a1,color:#fff
+       style B fill:#8e24aa,stroke:#4a148c,color:#fff
+       style C fill:#ef6c00,stroke:#bf360c,color:#fff
+   `} />
+
+   各 API パラダイムの強みを活かした機能分割
+
+### 🔒 API セキュリティベストプラクティス
+
+API 設計において、セキュリティは最も重要な要素の一つです。以下に主要なセキュリティ対策を示します。
+
+#### API セキュリティチェックリスト
+
+| カテゴリ | 対策 | 説明 |
+|---------|-----|------|
+| 認証 | OAuth 2.0 / OpenID Connect | 業界標準の認証フレームワーク |
+| | JWT (JSON Web Tokens) | ステートレスな認証トークン |
+| | API キー | シンプルな認証方式（低〜中セキュリティ用途） |
+| | 多要素認証 (MFA) | 重要な操作に対する追加認証レイヤー |
+| 認可 | RBAC (ロールベース) | ロールに基づくアクセス制御 |
+| | ABAC (属性ベース) | 属性に基づく柔軟なアクセス制御 |
+| | スコープベース認可 | OAuth スコープによる機能制限 |
+| 通信保護 | TLS 1.3 | 最新の暗号化プロトコル |
+| | HTTP Strict Transport Security | HTTPS 強制 |
+| | 証明書のピンニング | 中間者攻撃対策 |
+| 入力検証 | スキーマ検証 | 入力データの構造検証 |
+| | サニタイズ | 悪意のあるコード除去 |
+| | レート制限 | リクエスト数の制限 |
+| 脅威対策 | WAF (Web Application Firewall) | 既知の攻撃パターン防御 |
+| | API ゲートウェイ保護 | 異常検知、ボット対策 |
+| | OWASP Top 10対策 | 主要な脆弱性への対応 |
+| 監視・対応 | セキュリティログ | 異常なアクセスの記録 |
+| | リアルタイムアラート | セキュリティイベントの通知 |
+| | インシデント対応計画 | セキュリティ侵害時の手順 |
+
+#### OWASP API Security Top 10 対策
+
+1. **認可の不備**: 適切なアクセス制御設計と実装
+2. **認証メカニズムの不備**: 強力な認証システムの採用
+3. **過剰なデータ公開**: レスポンスフィルタリングの実装
+4. **リソース制限の欠如**: レート制限と使用量クォータの設定
+5. **BOLA (Broken Object Level Authorization)**: オブジェクトレベルの権限チェック
+6. **質の低い資産管理**: API インベントリと文書化の徹底
+7. **セキュリティ設定ミス**: セキュリティ設定のレビューと強化
+8. **インジェクション**: パラメータ化されたクエリとサニタイゼーション
+9. **不適切な資産管理**: API バージョン管理と非推奨化ポリシー
+10. **ログ記録と監視の不足**: 包括的なログ記録と監視の実装
+
+#### セキュアな API ゲートウェイ設定例（Kong）
+
+```yaml
+_format_version: "2.1"
+
+services:
+  - name: user-service
+    url: http://user-service:8000
+    plugins:
+      - name: key-auth
+        config:
+          key_names: ['api-key']
+      - name: rate-limiting
+        config:
+          minute: 60
+          policy: local
+      - name: cors
+        config:
+          origins: ['https://example.com']
+          methods: ['GET', 'POST', 'PUT', 'DELETE']
+          headers: ['Authorization', 'Content-Type']
+          max_age: 3600
+      - name: request-transformer
+        config:
+          remove:
+            headers: ['X-Forwarded-For']
+    routes:
+      - name: user-routes
+        paths: ['/api/v1/users']
+
+  - name: order-service
+    url: http://order-service:8000
+    plugins:
+      - name: jwt
+        config:
+          secret_is_base64: false
+          claims_to_verify: ['exp', 'nbf']
+      - name: acl
+        config:
+          allow: ['admin', 'customer']
+    routes:
+      - name: order-routes
+        paths: ['/api/v1/orders']
+```
+
+### 📊 API 管理のベストプラクティス
+
+効果的な API 管理には以下の要素が重要です。
+
+#### API ライフサイクル管理
+
+1. **計画と設計**
+   - API-First 設計アプローチ
+   - ドメインモデルの定義
+   - スキーマ設計
+   - スタイルガイド策定
+
+2. **開発と実装**
+   - コーディング標準の適用
+   - ユニットテスト・統合テスト
+   - CI/CD パイプライン構築
+   - コードレビュー
+
+3. **公開とプロモーション**
+   - ドキュメント整備
+   - 開発者ポータル設置
+   - サンドボックス環境提供
+   - API 利用事例の公開
+
+4. **モニタリングと最適化**
+   - パフォーマンス監視
+   - エラーレート追跡
+   - 使用状況分析
+   - ボトルネック特定
+
+5. **廃止と移行**
+   - 非推奨化プロセス
+   - バージョン移行支援
+   - 互換性維持戦略
+   - 段階的廃止計画
+
+#### API 開発者ポータル必須要素
+
+- **API カタログ**: 提供する API の一覧と概要
+- **インタラクティブドキュメント**: OpenAPI/Swagger または GraphQL Playground
+- **コードサンプル**: 主要言語での実装例
+- **認証・認可ガイド**: セキュリティ実装方法
+- **サンドボックス環境**: 実際の API を試せる環境
+- **変更履歴と移行ガイド**: バージョン間の変更点と移行方法
+- **使用制限とポリシー**: レート制限、利用規約
+- **コミュニティフォーラム**: 質問・回答・フィードバックの場
+
+#### API 監視ダッシュボード要素
+
+- **可用性と応答時間**: API エンドポイントの稼働状況と応答速度
+- **エラーレート**: HTTP ステータスコード別の発生頻度
+- **リクエスト量**: 時間帯・エンドポイント別の使用量
+- **帯域使用量**: データ転送量の監視
+- **SLA 遵守状況**: サービスレベル合意の達成度
+- **異常検知**: 通常パターンからの逸脱検出
+- **ユーザー/クライアントごとの使用状況**: 顧客別分析
+- **地理的分布**: リクエスト元の地域分布
+
+### 📌 API バージョニング戦略
+
+API のバージョン管理は長期的なメンテナンスと互換性にとって重要です。
+
+#### バージョニング手法比較
+
+| 手法 | 例 | 利点 | 欠点 | 推奨用途 |
+|-----|-----|-----|-----|----------|
+| **URI パス** | `/api/v1/users` | 明示的、単純 | URI の変更 | 公開 API |
+| **クエリパラメータ** | `/api/users?version=1` | 既存 URI 維持 | 省略可能性 | 内部/パートナー API |
+| **HTTP ヘッダー** | `Accept: application/vnd.myapi.v1+json` | 美しい URI | 発見しにくい | 開発者向け API |
+| **コンテンツネゴシエーション** | `Accept: application/json;version=1.0` | 標準的手法 | 複雑さ | 洗練された API |
+| **ホストベース** | `v1.api.example.com` | インフラ分離 | DNS 依存 | 大規模マイクロサービス |
+
+#### バージョン移行計画テンプレート
+
+1. **変更計画の作成**
+   - API 変更の範囲と影響分析
+   - 互換性の維持または破壊の判断
+   - タイムラインと移行期間の設定
+
+2. **開発者への通知**
+   - 変更のドキュメント作成
+   - 移行ガイドの提供
+   - デプレケーション警告の組み込み
+   - メーリングリスト/ブログでの告知
+
+3. **段階的移行の実装**
+   - 新バージョンの並行提供
+   - レスポンスヘッダーでの非推奨警告
+   - クライアント移行状況のモニタリング
+   - 旧バージョンのサポート期限の設定
+
+4. **非推奨化プロセス**
+   - 段階的機能制限
+   - パフォーマンス低下の許容
+   - 最終期限の通知強化
+   - 最小限のプロキシサービスの検討
+
+### 📈 API パフォーマンス最適化技術
+
+API のパフォーマンスは、システム全体の応答性と効率に大きく影響します。
+
+#### パフォーマンス最適化テクニック比較
+
+| 最適化技術 | 適用対象 | 効果 | 実装複雑性 | トレードオフ |
+|-----------|---------|-----|-----------|------------|
+| **キャッシュ** |  |  |  |  |
+| CDN キャッシュ | REST, GraphQL | ⭐⭐⭐⭐⭐ | ⭐⭐ | 鮮度 vs 速度 |
+| アプリケーションキャッシュ | REST, GraphQL | ⭐⭐⭐⭐ | ⭐⭐⭐ | メモリ使用量 |
+| クライアントキャッシュ | REST > GraphQL | ⭐⭐⭐ | ⭐⭐⭐ | キャッシュ無効化 |
+| **データアクセス** |  |  |  |  |
+| データローダー | GraphQL | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | 実装複雑性 |
+| クエリ最適化 | REST, GraphQL | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | 保守性 |
+| インデックス設計 | REST, GraphQL | ⭐⭐⭐⭐ | ⭐⭐⭐ | 書き込みパフォーマンス |
+| **通信最適化** |  |  |  |  |
+| HTTP/2, HTTP/3 | REST, GraphQL | ⭐⭐⭐⭐ | ⭐ | ブラウザ対応 |
+| 圧縮 (gzip, Brotli) | REST, GraphQL | ⭐⭐⭐ | ⭐⭐ | CPU 使用量 |
+| バッチリクエスト | GraphQL > REST | ⭐⭐⭐⭐ | ⭐⭐⭐ | 単一リクエスト失敗時の処理 |
+| **アーキテクチャ** |  |  |  |  |
+| 水平スケーリング | REST, GraphQL | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ | コスト増加 |
+| エッジコンピューティング | REST > GraphQL | ⭐⭐⭐⭐ | ⭐⭐⭐⭐ | 実装複雑性 |
+| サーバーレス | REST, GraphQL | ⭐⭐⭐ | ⭐⭐ | コールドスタート |
+
+#### GraphQL N+1 問題対策
+
+GraphQL の主要な性能課題である N+1 問題（1つの親オブジェクトに対して N 個の子オブジェクトを個別に取得する問題）への対策は、例として以下のような手段があります。
+
+1. **データローダーパターン実装**:
+   ```ts title="apollo-server の例"
+   import DataLoader from 'dataloader';
+
+   // ユーザーIDのバッチで複数ユーザーを一度に取得するローダー
+   const userLoader = new DataLoader(async (userIds) => {
+     console.log('Batch loading users:', userIds);
+     const users = await db.users.findByIds(userIds);
+     // userIds と同じ順序で返す必要がある
+     return userIds.map(id => users.find(user => user.id === id));
+   });
+
+   // リゾルバーでの使用
+   const resolvers = {
+     Query: {
+       posts: async () => await db.posts.findAll(),
+     },
+     Post: {
+       author: async (post) => await userLoader.load(post.authorId),
+     }
+   };
+   ```
+
+2. **GraphQL クエリの複雑性制限**:
+   ```javascript
+   import { createComplexityLimitRule } from 'graphql-validation-complexity';
+
+   const server = new ApolloServer({
+     typeDefs,
+     resolvers,
+     validationRules: [
+       createComplexityLimitRule(1000, {
+         scalarCost: 1,
+         objectCost: 10,
+         listFactor: 10,
+       })
+     ]
+   });
+   ```
+
+3. **自動バッチ処理ツール**:
+   - Apollo Server の `BatchHttpLink`
+   - Relay の `@dataloader` ディレクティブ
+   - Prisma の自動バッチ処理
+
+#### REST API パフォーマンスチェックリスト
+
+- **クエリパラメータ最適化**:
+  - 必要なフィールドのみを返す `?fields=id,name,email`
+  - ページネーション `?page=2&limit=20`
+  - 効率的なフィルタリング `?category=electronics&min_price=100`
+
+- **レスポンスサイズ削減**:
+  - 不要なデータの省略
+  - HATEOAS リンクの最適化
+  - 圧縮の有効化（gzip, Brotli）
+
+- **キャッシュヘッダー最適化**:
+  ```
+  Cache-Control: public, max-age=3600
+  ETag: "33a64df551425fcc55e4d42a148795d9f25f89d4"
+  Last-Modified: Wed, 21 Apr 2023 07:28:00 GMT
+  ```
+
+- **条件付きリクエスト**:
+  ```
+  GET /api/products/123
+  If-None-Match: "33a64df551425fcc55e4d42a148795d9f25f89d4"
+  ```
+
+### 🗂️ API ドキュメント作成ベストプラクティス
+
+質の高い API ドキュメントは、開発者の採用とサポートコスト削減に直結します。
+
+#### API ドキュメント品質チェックリスト
+
+| カテゴリ | チェック項目 | 重要度 |
+|---------|------------|--------|
+| **基本情報** | API の目的と概要 | ⭐⭐⭐⭐⭐ |
+| | 認証方法の詳細 | ⭐⭐⭐⭐⭐ |
+| | エンドポイント一覧 | ⭐⭐⭐⭐⭐ |
+| | バージョン情報 | ⭐⭐⭐⭐ |
+| **技術詳細** | リクエスト/レスポンス形式 | ⭐⭐⭐⭐⭐ |
+| | パラメータ説明（必須/任意） | ⭐⭐⭐⭐⭐ |
+| | エラーコードと対処法 | ⭐⭐⭐⭐⭐ |
+| | レート制限情報 | ⭐⭐⭐⭐ |
+| **使いやすさ** | コード例（複数言語） | ⭐⭐⭐⭐⭐ |
+| | インタラクティブコンソール | ⭐⭐⭐⭐ |
+| | ユースケースとチュートリアル | ⭐⭐⭐⭐ |
+| | FAQ セクション | ⭐⭐⭐ |
+| **メンテナンス** | 更新日の明記 | ⭐⭐⭐⭐ |
+| | 変更履歴 | ⭐⭐⭐⭐ |
+| | フィードバックメカニズム | ⭐⭐⭐ |
+| | ドキュメントのバージョン管理 | ⭐⭐⭐⭐ |
+
+#### OpenAPI 仕様例（一部抜粋）
+
+```yaml
+openapi: 3.0.0
+info:
+  title: 商品カタログ API
+  description: ECサイト向け商品情報の管理 API
+  version: 1.0.0
+  contact:
+    name: API サポートチーム
+    email: api@example.com
+servers:
+  - url: https://api.example.com/v1
+    description: 本番環境
+  - url: https://staging-api.example.com/v1
+    description: ステージング環境
+paths:
+  /products:
+    get:
+      summary: 商品一覧の取得
+      description: 商品カタログから商品一覧を取得します。フィルタリングとソートが可能です。
+      parameters:
+        - name: category
+          in: query
+          description: 特定カテゴリの商品のみを取得
+          schema:
+            type: string
+        - name: sort
+          in: query
+          description: ソート順（name, price, date）
+          schema:
+            type: string
+            enum: [name, price, date]
+            default: name
+      responses:
+        '200':
+          description: 商品リスト
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+components:
+  schemas:
+    Product:
+      type: object
+      required:
+        - id
+        - name
+        - price
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        name:
+          type: string
+          example: "スマートフォン X1"
+        price:
+          type: number
+          format: float
+          example: 79800
+        description:
+          type: string
+          example: "最新モデルのスマートフォン"
+        category:
+          type: string
+          example: "electronics"
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+```
+
+#### GraphQL スキーマドキュメント生成
+
+GraphQL の利点の一つは、スキーマからドキュメントを自動生成できることです。
+
+1. **GraphQL Playground / GraphiQL**:
+   - インタラクティブなクエリエディタ
+   - スキーマの閲覧と検索
+   - クエリ自動補完
+   - クエリ実行とテスト
+
+2. **SpectaQL**:
+   - OpenAPI ライクなドキュメント生成
+   - スキーマからの静的ドキュメント
+   - カスタマイズ可能なテーマ
+
+3. **GraphDoc**:
+   - スキーマからの HTML ドキュメント
+   - タイプと関係の視覚化
+   - 検索機能
+
+### 📱 AI システム統合のための API 設計考慮点
+
+生成 AI を統合するシステムにおいては、以下の点に特に注意が必要です。
+
+#### AI 特化 API 設計パターン
+
+| パターン | 説明 | ユースケース |
+|---------|------|------------|
+| **ストリーミングレスポンス** | 生成結果を段階的に返す | チャットボット、テキスト生成 |
+| **非同期処理** | 長時間タスクを非同期で実行 | 画像生成、大規模言語モデル推論 |
+| **コンテキスト管理** | 会話履歴などの状態管理 | 対話型 AI アシスタント |
+| **フォールバックメカニズム** | AI 失敗時の代替処理 | ミッションクリティカルな AI 適用 |
+| **説明可能性 API** | AI 決定の根拠情報提供 | 金融審査、医療診断支援 |
+| **フィードバックループ** | ユーザー評価の収集と反映 | AI モデル改善、パーソナライズ |
+
+#### AI API のレスポンスタイム管理戦略
+
+1. **ストリーミングレスポンス実装**:
+   ```ts title="サーバー側（Node.js/Express の例）"
+   app.get('/api/generate-text', (req, res) => {
+     res.setHeader('Content-Type', 'text/event-stream');
+     res.setHeader('Cache-Control', 'no-cache');
+     res.setHeader('Connection', 'keep-alive');
+
+     // AI モデルからのストリーミング出力を処理
+     const aiModel = new AITextGenerator();
+     aiModel.generateWithStreaming(req.query.prompt, (chunk) => {
+       res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`);
+     }, () => {
+       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+       res.end();
+     });
+   });
+   ```
+
+   ```ts title="クライアント側"
+   const evtSource = new EventSource('/api/generate-text?prompt=Write a story');
+   let fullText = '';
+
+   evtSource.onmessage = (event) => {
+     const data = JSON.parse(event.data);
+     if (data.done) {
+       evtSource.close();
+       return;
+     }
+     fullText += data.text;
+     outputElement.textContent = fullText;
+   };
+   ```
+
+2. **非同期処理パターン**:
+   ```
+   1. クライアント → POST /api/tasks (タスク作成)
+   2. サーバー → 202 Accepted, { "task_id": "abc123" }
+   3. クライアント → GET /api/tasks/abc123 (ポーリング)
+   4. サーバー → { "status": "processing", "progress": 0.5 }
+   5. クライアント → [しばらく後] GET /api/tasks/abc123
+   6. サーバー → { "status": "completed", "result": "..." }
+   ```
+
+3. **Webhook コールバック**:
+   ```
+   1. クライアント → POST /api/generate-image { "prompt": "...", "callback_url": "https://client.com/notify" }
+   2. サーバー → 202 Accepted, { "task_id": "abc123" }
+   3. [AI 処理完了後]
+   4. サーバー → POST https://client.com/notify { "task_id": "abc123", "status": "completed", "result_url": "..." }
+   ```
+
+#### AI API エラーハンドリング戦略
+
+| エラーカテゴリ | 対応戦略 | 実装例 |
+|--------------|---------|-------|
+| **モデル制限** | フォールバックモデル | より小さいモデルにダウングレード |
+| **コンテキスト超過** | 自動要約・分割 | 長いプロンプトを自動要約 |
+| **レスポンス品質** | 複数モデル併用 | 複数の AI モデルでクロスチェック |
+| **タイムアウト** | 部分結果返却 | 処理済み部分を返却 |
+| **コンテンツポリシー違反** | コンテンツフィルタリング | プロンプトの事前検査と修正 |
+| **サービス障害** | キャッシュ応答 | 過去の類似リクエスト結果の使用 |
+
+#### リアルワールド AI API 統合ユースケース
+
+**ケース 1: EC サイトの商品レコメンデーション API**
+
+```
+// 1. REST API で商品情報とユーザー履歴を取得
+GET /api/v1/users/123/history
+GET /api/v1/products?category=electronics
+
+// 2. GraphQL で詳細なユーザーコンテキストを取得
+query {
+  user(id: "123") {
+    preferences
+    recentSearches
+    purchaseHistory {
+      products {
+        id
+        category
+        price
+      }
+      date
+    }
+  }
+}
+
+// 3. AI 推論 API 呼び出し（非同期）
+POST /api/ai/recommendations
+{
+  "user_id": "123",
+  "context": { ... },
+  "callback_url": "https://example.com/webhook"
+}
+
+// 4. 結果をストリーミングで返却
+GET /api/ai/recommendations/stream/456
+// Server-Sent Events でレコメンデーションを順次送信
+```
+
+**ケース 2: AI チャットボットバックエンド API**
+
+```
+// 1. 会話コンテキスト管理 API
+POST /api/chat/sessions
+// → セッション ID 取得
+
+// 2. メッセージ送信と応答取得（ストリーミング）
+POST /api/chat/sessions/789/messages
+{
+  "content": "製品の返品方法を教えてください",
+  "stream": true
+}
+
+// 3. AI が情報不足の場合、GraphQL で商品情報検索
+query {
+  products(filter: { purchasedBy: "user123", lastMonth: true }) {
+    id
+    name
+    returnPolicy {
+      deadlineDays
+      conditions
+      process
+    }
+  }
+}
+
+// 4. 外部システム操作（返品手続き開始）
+POST /api/returns
+{
+  "product_id": "prod456",
+  "reason": "サイズ不適合",
+  "user_id": "user123"
+}
+```
+
+### 📱 マルチプラットフォーム API 戦略
+
+様々なクライアントプラットフォームに対応する API 戦略は、多様なユーザー体験を提供するために重要です。
+
+#### プラットフォーム別 API 対応戦略
+
+| クライアント | 特性 | 最適な API 設計 | 考慮点 |
+|------------|------|--------------|--------|
+| **モバイルアプリ** | 帯域制限、バッテリー制約 | GraphQL、BFF | レスポンスサイズ最適化、オフライン対応 |
+| **シングルページアプリ** | 豊富な UI、頻繁な API 呼び出し | GraphQL、REST + キャッシュ | バンドルサイズ、CORS、認証 |
+| **IoT デバイス** | リソース制約、間欠的接続 | 軽量 REST、MQTT | プロトコル効率、低帯域幅 |
+| **サードパーティ連携** | 様々な実装、厳格な契約 | REST、OpenAPI | バージョン管理、レート制限、監視 |
+| **サーバー間通信** | 高スループット、信頼性 | gRPC、高度な REST | パフォーマンス、負荷分散 |
+
+#### BFF (Backend For Frontend) パターン
+
+異なるクライアント向けに特化した API レイヤーを提供する BFF パターンは、クライアント固有の要件に効率的に対応します。
+
+```
+         ┌────────────┐ ┌────────────┐ ┌────────────┐
+クライアント │ モバイルアプリ │ │   Web UI   │ │ デスクトップ │
+         └──────┬─────┘ └──────┬─────┘ └──────┬─────┘
+                │              │              │
+         ┌──────▼─────┐ ┌──────▼─────┐ ┌──────▼─────┐
+BFF レイヤー │モバイル BFF │ │  Web BFF  │ │デスクトップBFF│
+         └──────┬─────┘ └──────┬─────┘ └──────┬─────┘
+                │              │              │
+                ▼              ▼              ▼
+         ┌──────────────────────────────────────────┐
+         │             マイクロサービス              │
+         └──────────────────────────────────────────┘
+```
+
+<Mermaid chart={`
+flowchart TB
+    %% クライアント層
+    A1[モバイルアプリ]
+    A2[Web UI]
+    A3[デスクトップ]
+
+    %% BFF レイヤー
+    B1[モバイル BFF]
+    B2[Web BFF]
+    B3[デスクトップ BFF]
+
+    %% マイクロサービス層
+    C[マイクロサービス]
+
+    %% 接続（クライアント → BFF）
+    A1 --> B1
+    A2 --> B2
+    A3 --> B3
+
+    %% 接続（BFF → マイクロサービス）
+    B1 --> C
+    B2 --> C
+    B3 --> C
+
+    %% スタイル
+    style A1 fill:#e3f2fd,stroke:#1565c0,color:#000
+    style A2 fill:#e3f2fd,stroke:#1565c0,color:#000
+    style A3 fill:#e3f2fd,stroke:#1565c0,color:#000
+
+    style B1 fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style B2 fill:#c8e6c9,stroke:#2e7d32,color:#000
+    style B3 fill:#c8e6c9,stroke:#2e7d32,color:#000
+
+    style C fill:#fff3e0,stroke:#ef6c00,color:#000
+`} />
+
+**BFF パターンのメリット**:
+- クライアント特有の最適化
+- フロントエンドチームの自律性向上
+- バックエンドの複雑さの隠蔽
+- デバイス固有の要件への対応
+
+**BFF パターンの課題**:
+- コード重複の可能性
+- 追加のインフラストラクチャ管理
+- 一貫性の維持が難しい
+- テストの複雑化
+
+### 📌 まとめ
+
+API 設計と管理は、現代のシステム統合において中核を成す重要な領域です。
+RESTful API、GraphQL、API ゲートウェイはそれぞれ独自の強みを持ち、システム要件や開発コンテキストに応じて最適な選択が変わります。
+
+本ドキュメントで解説した主要ポイント：
+
+1. **設計パラダイムの選択**: REST、GraphQL、ハイブリッドアプローチから要件に応じた適切な選択
+2. **API ゲートウェイの活用**: 複数 API の統合管理、セキュリティ強化、モニタリング
+3. **包括的なセキュリティ対策**: 認証・認可、通信保護、脅威対策
+4. **パフォーマンス最適化**: キャッシュ戦略、クエリ最適化、N+1問題対策
+5. **ライフサイクル管理**: 設計、開発、公開、モニタリング、廃止の各段階の管理
+6. **API 文書化**: 高品質なドキュメント作成とメンテナンス
+7. **マルチプラットフォーム対応**: 多様なクライアントへの最適な API 提供
+
+特に AI 機能を統合するシステムでは、ストリーミングレスポンス、非同期処理、フォールバックメカニズムなどの特殊な要件に対応するハイブリッドな戦略が効果的です。
+
+成功する API 戦略のためには、技術的な側面だけでなく、開発者エクスペリエンス、セキュリティ、運用効率、そしてビジネス要件との整合性を総合的に考慮することが重要です。
+適切に設計・管理された API は、システム全体の柔軟性、拡張性、保守性を大きく向上させる基盤となります。
+
+### 用語解説
+
+| 用語 | 説明 |
+|------|------|
+| REST | Representational State Transfer の略。HTTP プロトコルを基にしたウェブサービス設計の原則。 |
+| GraphQL | Facebook が開発したデータクエリ言語。クライアントが必要なデータ構造を正確に指定できる。 |
+| API ゲートウェイ | クライアントとバックエンドサービス間の仲介として機能し、API を一元管理するコンポーネント。 |
+| HATEOAS | Hypermedia as the Engine of Application State の略。REST の原則の一つで、API レスポンスに関連リソースへのリンクを含める。 |
+| オーバーフェッチング | 必要以上のデータを取得してしまう問題（特に REST API で発生）。 |
+| アンダーフェッチング | 必要なデータを取得するために複数のリクエストが必要になる問題（特に REST API で発生）。 |
+| リゾルバー | GraphQL において、クエリに応じてデータを取得するロジックを実装した関数。 |
+| N+1問題 | GraphQL などで発生する問題で、親オブジェクトの取得に1回、各子オブジェクトの取得に N 回のクエリが実行される状態。 |
+| OpenAPI/Swagger | REST API を記述・文書化するための仕様とツール。 |
+| JWT | JSON Web Token の略。安全に情報を転送するためのコンパクトで自己完結型のトークン形式。 |
+| BFF | Backend For Frontend の略。特定のフロントエンド向けに最適化されたバックエンド API レイヤー。 |
+| RBAC | Role-Based Access Control の略。ロールに基づいたアクセス制御方式。 |
+| ABAC | Attribute-Based Access Control の略。属性に基づいたアクセス制御方式。 |
+| CDN | Content Delivery Network の略。分散配置されたサーバーでコンテンツを効率的に配信するネットワーク。 |
+| CORS | Cross-Origin Resource Sharing の略。異なるオリジン間でのリソース共有を制御するセキュリティ機能。 |
+| gRPC | Google が開発した高性能な RPC (Remote Procedure Call) フレームワーク。 |
+| OAuth 2.0 | 認可の標準プロトコル。サードパーティアプリケーションへの限定的なアクセス権を付与する。 |

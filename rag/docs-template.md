@@ -1,6 +1,6 @@
 以下について、分かりやすく順を追ってスマートに説明を Markdown 形式のドキュメントにまとめてください。
 
-- **API 設計と管理**: RESTful、GraphQL、API ゲートウェイの活用
+- **AI 駆動型インターフェース**: チャットUI、AIアシスタント、サジェスション
 
 また、以下の依頼に沿った出力内容にしてください。
 - 最上位の見出しは h1 ではなく、h2 にしてください。以降の見出しも、それに沿って見出しの大きさを１つずつ下げて階層の整合性を保ってください
@@ -48,10 +48,10 @@ graph TD
 #### 3.1 システム統合設計
 
 - **Next.js の App Router と Server Component**: SSR/SSG/ISR と生成 AI の連携
-- **Server Action vs tRPC**: 型安全な通信設計と使い分け
+- **API 設計と管理**: RESTful、GraphQL、API ゲートウェイの活用
+- **Server Action vs tRPC：型安全な API 設計**: JavaScript/TypeScript、Go、Rust の実装アプローチと使い分け
 - **ストリーミングレスポンス処理**: UI/UX とサーバー間の効率的な通信
 - **マイクロフロントエンド/マイクロサービス**: 大規模アプリケーションの分割設計
-- **API 設計と管理**: RESTful、GraphQL、API ゲートウェイの活用
 
 #### 3.2 AI 特化 UX/UI 設計
 
