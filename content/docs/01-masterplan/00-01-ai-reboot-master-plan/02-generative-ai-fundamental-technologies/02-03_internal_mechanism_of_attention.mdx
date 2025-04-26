@@ -222,12 +222,63 @@ Softmax の適用
 **ステップ 4**:
 
 $V$ との積
+{/* $$
+\text{Attention} =
+\begin{bmatrix}
+1 & 0 & 0 & 0 \\
+0 & 1 & 0 & 0 \\
+0 & 0 & 1 & 0
+\end{bmatrix}
+\cdot
+\begin{bmatrix}
+1 & 0 & 0 & 0 \\
+0 & 1 & 0 & 0 \\
+0 & 0 & 1 & 0
+\end{bmatrix}
+=
+\begin{bmatrix}
+1 & 0 & 0 & 0 \\
+0 & 1 & 0 & 0 \\
+0 & 0 & 1 & 0
+\end{bmatrix}
+$$
+
+$$
+\text{Attention} =
+\begin{bmatrix}
+1 & 0 & 0 \\
+0 & 1 & 0 \\
+0 & 0 & 1
+\end{bmatrix}
+\cdot
+\begin{bmatrix}
+1 & 0 & 0 & 0 \\
+0 & 1 & 0 & 0 \\
+0 & 0 & 1 & 0
+\end{bmatrix}
+=
+\begin{bmatrix}
+1\cdot1+0\cdot0+0\cdot0 & 1\cdot0+0\cdot1+0\cdot0 & 1\cdot0+0\cdot0+0\cdot1 & 1\cdot0+0\cdot0+0\cdot0 \\
+0\cdot1+1\cdot0+0\cdot0 & 0\cdot0+1\cdot1+0\cdot0 & 0\cdot0+1\cdot0+0\cdot1 & 0\cdot0+1\cdot0+0\cdot0 \\
+0\cdot1+0\cdot0+1\cdot0 & 0\cdot0+0\cdot1+1\cdot0 & 0\cdot0+0\cdot0+1\cdot1 & 0\cdot0+0\cdot0+1\cdot0
+\end{bmatrix}
+$$
+
 $$
 \text{Attention} =
 \begin{bmatrix}
 1 & 0 & 0 & 0 \\
 0 & 1 & 0 & 0 \\
 0 & 0 & 1 & 0
+\end{bmatrix}
+$$ */}
+
+$$
+\text{Attention} =
+\begin{bmatrix}
+1 & 0 & 0 \\
+0 & 1 & 0 \\
+0 & 0 & 1
 \end{bmatrix}
 \cdot
 \begin{bmatrix}
