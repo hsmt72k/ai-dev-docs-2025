@@ -222,57 +222,6 @@ Softmax の適用
 **ステップ 4**:
 
 $V$ との積
-{/* $$
-\text{Attention} =
-\begin{bmatrix}
-1 & 0 & 0 & 0 \\
-0 & 1 & 0 & 0 \\
-0 & 0 & 1 & 0
-\end{bmatrix}
-\cdot
-\begin{bmatrix}
-1 & 0 & 0 & 0 \\
-0 & 1 & 0 & 0 \\
-0 & 0 & 1 & 0
-\end{bmatrix}
-=
-\begin{bmatrix}
-1 & 0 & 0 & 0 \\
-0 & 1 & 0 & 0 \\
-0 & 0 & 1 & 0
-\end{bmatrix}
-$$
-
-$$
-\text{Attention} =
-\begin{bmatrix}
-1 & 0 & 0 \\
-0 & 1 & 0 \\
-0 & 0 & 1
-\end{bmatrix}
-\cdot
-\begin{bmatrix}
-1 & 0 & 0 & 0 \\
-0 & 1 & 0 & 0 \\
-0 & 0 & 1 & 0
-\end{bmatrix}
-=
-\begin{bmatrix}
-1\cdot1+0\cdot0+0\cdot0 & 1\cdot0+0\cdot1+0\cdot0 & 1\cdot0+0\cdot0+0\cdot1 & 1\cdot0+0\cdot0+0\cdot0 \\
-0\cdot1+1\cdot0+0\cdot0 & 0\cdot0+1\cdot1+0\cdot0 & 0\cdot0+1\cdot0+0\cdot1 & 0\cdot0+1\cdot0+0\cdot0 \\
-0\cdot1+0\cdot0+1\cdot0 & 0\cdot0+0\cdot1+1\cdot0 & 0\cdot0+0\cdot0+1\cdot1 & 0\cdot0+0\cdot0+1\cdot0
-\end{bmatrix}
-$$
-
-$$
-\text{Attention} =
-\begin{bmatrix}
-1 & 0 & 0 & 0 \\
-0 & 1 & 0 & 0 \\
-0 & 0 & 1 & 0
-\end{bmatrix}
-$$ */}
-
 $$
 \text{Attention} =
 \begin{bmatrix}
@@ -590,8 +539,10 @@ end
 R_{i,j} = a_{i-j}
 ```
 
+import { InlineMath } from "@/components/mdx/inline-math";
+
 ここで:
-- $R_{i,j}$ は位置 $i$ のトークンと位置 $j$ のトークンの間の相対位置関係を表す値
+- <InlineMath math="R_{i,j}" /> は位置 $i$ のトークンと位置 $j$ のトークンの間の相対位置関係を表す値
 - $a_{i-j}$ は相対距離 ($i-j$) に対応する学習可能なパラメータ
 
 実際の実装では、通常は相対位置のクリッピング（例えば $-k$ から $k$ までの範囲に制限）を行い、学習すべきパラメータ数を削減します。
@@ -619,8 +570,8 @@ a_4 & a_3 & a_2 & a_1 & a_0
 \end{bmatrix}
 $$
 
-この行列の各要素 $R_{i,j}$ は、位置 $i$ のトークンから見た位置 $j$ のトークンの相対位置を表しています。
-例えば、$R_{2,1} = a_1$ は、2番目のトークンから見て1番目のトークンは「1つ前」にあることを意味します。
+この行列の各要素 <InlineMath math="R_{i,j}" /> は、位置 $i$ のトークンから見た位置 $j$ のトークンの相対位置を表しています。
+例えば、<InlineMath math="R_{2,1} = a_1" /> は、2番目のトークンから見て1番目のトークンは「1つ前」にあることを意味します。
 
 相対位置エンコーディングの利点は、シーケンスの長さに依存せず、同じ相対距離のトークンペアは同じ位置情報を共有できることです。
 これにより、モデルが学習していない長さのシーケンスにも容易に一般化できます。
