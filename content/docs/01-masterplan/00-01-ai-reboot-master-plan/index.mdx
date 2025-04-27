@@ -167,29 +167,29 @@ import Image from 'next/image';
 
 - [**知識グラフ構築**](./00-01-ai-reboot-master-plan/05-legacy-system-integration-and-knowledge-management/03-01_knowledge_graph_construction): エンティティ間の関係を構造化した情報表現
 - [**オントロジー設計**](./00-01-ai-reboot-master-plan/05-legacy-system-integration-and-knowledge-management/03-02_ontology_design): ドメイン固有の概念と関係性を体系化する手法
-- [**トリプルストア運用**](./00-01-ai-reboot-master-plan/05-legacy-system-integration-and-knowledge-management/03-03_triple_store_operations): 主語-述語-目的語の関係を格納するデータベース
+- [**トリプルストア運用**](./00-01-ai-reboot-master-plan/05-legacy-system-integration-and-knowledge-management/03-03_triple_store_operations): 主語 - 述語 - 目的語の関係を格納するデータベース
 - [**意味推論エンジン**](./00-01-ai-reboot-master-plan/05-legacy-system-integration-and-knowledge-management/03-04_semantic_reasoning_engine): 知識グラフの関係性から新たな知識を導出する技術
-- **LLM と知識グラフの統合**: 生成AIの応答を事実に基づいて制約・強化する手法
+- [**LLM と知識グラフの統合**](./00-01-ai-reboot-master-plan/05-legacy-system-integration-and-knowledge-management/03-05_llm_and_knowledge_graph_integration): 生成 AI の応答を事実に基づいて制約・強化する手法
 
 ### 6. セキュリティとガバナンス
 
 #### 6.1 認証と権限管理
 
-- **トークンベース認証**: JWT、OAuth2.0、OpenID Connectの実装
-- **セッションベース認証**: ステートフルセッション管理、Cookieセキュリティ
+- [**トークンベース認証**](./00-01-ai-reboot-master-plan/06-security-and-governance/01-01_token_based_authentication): JWT、OAuth2.0、OpenID Connect の実装
+- **セッションベース認証**: ステートフルセッション管理、Cookie セキュリティ
 - **パスキー認証(WebAuthn/FIDO2)**: パスワードレス認証、バイオメトリクス連携
 - **多要素認証(MFA)**: 認証フローの設計、リスクベース認証
-- **AI特化アクセス制御**: 機能/データ/ユーザーレベルの権限粒度設計
+- **AI 特化アクセス制御**: 機能/データ/ユーザーレベルの権限粒度設計
 
-#### 6.2 AIセキュリティ対策
+#### 6.2 AI セキュリティ対策
 
 - **プロンプトインジェクション対策**: 入力サニタイズ、境界設定、フィルタリング
 - **トークン使用量管理**: コスト最適化、使用量予測、上限設定
 - **モデル入出力のログ管理**: プライバシー保護とコンプライアンス対応
-- **データ漏洩防止**: 機密情報のマスキング、PII検出と削除
+- **データ漏洩防止**: 機密情報のマスキング、PII 検出と削除
 - **サプライチェーンセキュリティ**: 外部AI依存関係の脆弱性管理
 
-#### 6.3 AIガバナンスとコンプライアンス
+#### 6.3 AI ガバナンスとコンプライアンス
 
 - **説明可能性の確保**: AIの意思決定プロセスの追跡と記録
 - **公平性監査**: アルゴリズムバイアスの検出と軽減プロセス

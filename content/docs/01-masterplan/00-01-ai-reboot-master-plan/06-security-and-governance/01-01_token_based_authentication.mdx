@@ -1,0 +1,435 @@
+---
+title: トークンベース認証
+description: Token-based Authentication
+icon: Captions
+---
+
+import { Mermaid } from "@/components/mdx/mermaid";
+
+## 現代システムを支えるトークンベース認証の実装
+
+### 🔑 エグゼクティブサマリー
+
+本ドキュメントでは、現代のシステム開発において不可欠となっているトークンベース認証（JWT、OAuth 2.0、OpenID Connect）の実装方法について解説します。これらのプロトコルを活用することで、安全で柔軟な認証システムを構築でき、ユーザー体験を損なうことなくセキュリティを向上させることができます。特に分散システムやマイクロサービスアーキテクチャでは、トークンベース認証はスケーラビリティとセキュリティの両立を実現する鍵となります。
+
+#### 想定読者
+- システムアーキテクト
+- バックエンド開発者
+- セキュリティエンジニア
+- DevOps エンジニア
+
+#### 対象システム規模
+- 中小規模 Web アプリケーション
+- エンタープライズシステム
+- マイクロサービスアーキテクチャ
+- クラウドネイティブアプリケーション
+
+### 📚 基本概念
+
+トークンベース認証を理解するには、以下の基本概念を押さえておく必要があります。
+
+- **ステートレス認証**: サーバー側でセッション状態を保持せず、認証情報をトークンとしてクライアント側に保存
+- **クレーム（Claims）**: トークンに含まれる情報の単位（ユーザー ID、権限、有効期限など）
+- **署名検証**: トークンの改ざんを防ぐための暗号学的検証メカニズム
+- **トークンの種類**: アクセストークン、リフレッシュトークン、ID トークンなど
+
+### 🔒 JWT（JSON Web Token）の実装
+
+#### JWT の構造
+
+JWT は以下の 3 つのパートからなる標準化されたトークン形式です。
+
+1. **ヘッダー（Header）**: トークンタイプと使用する署名アルゴリズムを指定
+2. **ペイロード（Payload）**: クレーム（ユーザー情報や権限など）を含む
+3. **署名（Signature）**: トークンの整合性を検証するための暗号署名
+
+各パートは Base64URL エンコードされ、ドット（.）で区切られます。
+
+```
+xxxxx.yyyyy.zzzzz
+```
+
+#### JWT 実装手順
+
+1. **依存関係の追加**: プロジェクトに JWT ライブラリを追加します。
+
+   ```javascript
+   // Node.js の例
+   npm install jsonwebtoken
+   ```
+
+2. **トークン生成**: ユーザー認証後に JWT を生成します。
+
+   ```javascript
+   const jwt = require('jsonwebtoken');
+
+   function generateToken(user) {
+     const payload = {
+       sub: user.id,
+       name: user.name,
+       role: user.role,
+       iat: Math.floor(Date.now() / 1000),
+       exp: Math.floor(Date.now() / 1000) + (60 * 60) // 1時間有効
+     };
+
+     return jwt.sign(payload, process.env.JWT_SECRET);
+   }
+   ```
+
+3. **トークン検証**: 保護されたリソースへのアクセス時に JWT を検証します。
+
+   ```javascript
+   function verifyToken(req, res, next) {
+     const token = req.headers.authorization?.split(' ')[1];
+
+     if (!token) {
+       return res.status(401).json({ message: 'トークンがありません' });
+     }
+
+     try {
+       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+       req.user = decoded;
+       next();
+     } catch (err) {
+       return res.status(403).json({ message: 'トークンが無効です' });
+     }
+   }
+   ```
+
+4. **セキュリティベストプラクティス**:
+   - 強力な秘密鍵を使用（少なくとも 256 ビット）
+   - 適切な有効期限の設定（短すぎず長すぎない）
+   - 機密情報は JWT に含めない
+   - HTTPS 経由でのみトークンを送信
+
+<Mermaid chart={`
+sequenceDiagram
+    participant ユーザー
+    participant クライアント
+    participant サーバー
+    participant 保護リソース
+
+    ユーザー->>クライアント: ログイン情報入力
+    クライアント->>サーバー: 認証リクエスト
+    サーバー->>サーバー: 認証情報の検証
+    サーバー->>クライアント: JWT発行
+    Note over クライアント: トークンを保存
+
+    クライアント->>保護リソース: リクエスト + JWT
+    保護リソース->>保護リソース: JWT の検証
+    保護リソース->>クライアント: 保護されたデータ
+`} />
+
+*図1: JWT 認証フロー*
+
+### 🔄 OAuth 2.0 の実装
+
+#### OAuth 2.0 の役割
+
+OAuth 2.0 は認可フレームワークであり、以下の問題を解決します。
+
+- サードパーティアプリケーションへの安全なアクセス権限の委譲
+- ユーザーパスワードを共有せずにリソースへのアクセスを許可
+- 特定のスコープ（権限の範囲）でのアクセス許可
+
+#### OAuth 2.0 の主要コンポーネント
+
+1. **リソースオーナー**: ユーザー自身
+2. **クライアント**: アクセスを要求するアプリケーション
+3. **認可サーバー**: アクセストークンを発行するサーバー
+4. **リソースサーバー**: 保護されたリソースを提供するサーバー
+
+#### OAuth 2.0 の実装手順
+
+1. **アプリケーション登録**: OAuth プロバイダーにアプリケーションを登録し、クライアント ID とシークレットを取得します。
+
+2. **認可エンドポイントの設定**:
+
+   ```javascript
+   // Express.js の例
+   app.get('/oauth/authorize', (req, res) => {
+     const { client_id, redirect_uri, scope, state } = req.query;
+
+     // クライアント ID の検証
+     if (!validateClient(client_id, redirect_uri)) {
+       return res.status(400).json({ error: 'invalid_client' });
+     }
+
+     // ユーザーの同意画面を表示
+     res.render('authorize', {
+       client_id,
+       redirect_uri,
+       scope: scope.split(' '),
+       state
+     });
+   });
+   ```
+
+3. **トークンエンドポイントの実装**:
+
+   ```javascript
+   app.post('/oauth/token', (req, res) => {
+     const { grant_type, code, redirect_uri, client_id, client_secret } = req.body;
+
+     // クライアント認証
+     if (!authenticateClient(client_id, client_secret)) {
+       return res.status(401).json({ error: 'invalid_client' });
+     }
+
+     // 認可コードの検証
+     if (grant_type === 'authorization_code') {
+       const authCode = validateAuthCode(code, client_id, redirect_uri);
+       if (!authCode) {
+         return res.status(400).json({ error: 'invalid_grant' });
+       }
+
+       // アクセストークンとリフレッシュトークンの生成
+       const tokens = generateTokens(authCode.user_id, authCode.scope);
+       return res.json(tokens);
+     }
+
+     // リフレッシュトークンの処理
+     if (grant_type === 'refresh_token') {
+       // リフレッシュトークンの検証と新しいアクセストークンの発行
+     }
+
+     return res.status(400).json({ error: 'unsupported_grant_type' });
+   });
+   ```
+
+4. **クライアント側の実装**:
+
+   ```javascript
+   // 認可リクエストのリダイレクト
+   function redirectToAuth() {
+     const params = new URLSearchParams({
+       client_id: CLIENT_ID,
+       redirect_uri: REDIRECT_URI,
+       response_type: 'code',
+       scope: 'read write',
+       state: generateRandomState()
+     });
+
+     window.location.href = `https://auth-server.com/oauth/authorize?${params}`;
+   }
+
+   // コールバック処理
+   async function handleCallback() {
+     const urlParams = new URLSearchParams(window.location.search);
+     const code = urlParams.get('code');
+     const state = urlParams.get('state');
+
+     // state 値の検証
+     if (state !== localStorage.getItem('oauth_state')) {
+       throw new Error('不正なリクエスト');
+     }
+
+     // トークン交換
+     const tokenResponse = await fetchTokens(code);
+     saveTokens(tokenResponse);
+   }
+   ```
+
+<Mermaid chart={`
+sequenceDiagram
+    participant ユーザー
+    participant クライアント
+    participant 認可サーバー
+    participant リソースサーバー
+
+    ユーザー->>クライアント: サービス利用開始
+    クライアント->>認可サーバー: 認可リクエスト
+    認可サーバー->>ユーザー: 認可ダイアログ表示
+    ユーザー->>認可サーバー: アクセス承認
+    認可サーバー->>クライアント: 認可コード
+    クライアント->>認可サーバー: コードをトークン交換
+    認可サーバー->>クライアント: アクセストークン
+    クライアント->>リソースサーバー: APIリクエスト + トークン
+    リソースサーバー->>クライアント: リソース提供
+`} />
+
+*図2: OAuth 2.0 認可コードフロー*
+
+### 🔐 OpenID Connect の実装
+
+#### OpenID Connect とは
+
+OpenID Connect（OIDC）は OAuth 2.0 の拡張であり、認証機能を追加したものです。以下の特徴があります。
+
+- **ID トークン**: ユーザー情報を含む JWT
+- **標準化されたクレーム**: ユーザー情報のフィールドが統一されている
+- **ユーザー情報エンドポイント**: 追加のユーザー情報取得が可能
+
+#### OpenID Connect の実装手順
+
+1. **OIDC プロバイダーの設定**:
+
+   ```javascript
+   // Node.js と oidc-provider ライブラリを使用した例
+   const Provider = require('oidc-provider');
+
+   const oidc = new Provider('https://auth-server.com', {
+     clients: [
+       {
+         client_id: 'client_id',
+         client_secret: 'client_secret',
+         redirect_uris: ['https://client.example.com/callback'],
+         response_types: ['code'],
+         grant_types: ['authorization_code', 'refresh_token'],
+         scope: 'openid profile email',
+       }
+     ],
+     claims: {
+       openid: ['sub'],
+       profile: ['name', 'family_name', 'given_name', 'picture'],
+       email: ['email', 'email_verified']
+     },
+     // その他の設定
+   });
+
+   app.use('/oidc', oidc.callback());
+   ```
+
+2. **クライアント側の実装**:
+
+   ```javascript
+   // OIDC クライアントを初期化
+   const client = new OidcClient({
+     authority: 'https://auth-server.com',
+     client_id: 'client_id',
+     redirect_uri: 'https://client.example.com/callback',
+     response_type: 'code',
+     scope: 'openid profile email',
+     filterProtocolClaims: true,
+     loadUserInfo: true
+   });
+
+   // ログイン処理
+   async function login() {
+     const request = await client.createSigninRequest();
+     window.location.href = request.url;
+   }
+
+   // コールバック処理
+   async function handleCallback() {
+     const response = await client.processSigninResponse(window.location.href);
+
+     // ID トークンとアクセストークンの保存
+     const { id_token, access_token } = response;
+     localStorage.setItem('id_token', id_token);
+     localStorage.setItem('access_token', access_token);
+
+     // ユーザー情報の取得
+     const user = response.profile;
+     console.log('ログインユーザー:', user);
+   }
+   ```
+
+3. **ID トークンの検証**:
+
+   ```javascript
+   function verifyIdToken(idToken) {
+     const jwt = require('jsonwebtoken');
+     const jwksClient = require('jwks-rsa');
+
+     // JWKS クライアント設定
+     const client = jwksClient({
+       jwksUri: 'https://auth-server.com/.well-known/jwks.json'
+     });
+
+     // トークンのヘッダー部分をデコード
+     const header = JSON.parse(
+       Buffer.from(idToken.split('.')[0], 'base64url').toString()
+     );
+
+     // 公開鍵の取得
+     const key = await client.getSigningKey(header.kid);
+     const publicKey = key.getPublicKey();
+
+     // ID トークンの検証
+     const decoded = jwt.verify(idToken, publicKey, {
+       algorithms: ['RS256'],
+       issuer: 'https://auth-server.com',
+       audience: 'client_id'
+     });
+
+     return decoded;
+   }
+   ```
+
+<Mermaid chart={`
+sequenceDiagram
+    participant ユーザー
+    participant クライアント
+    participant OIDCプロバイダー
+    participant APIサーバー
+
+    ユーザー->>クライアント: ログイン開始
+    クライアント->>OIDCプロバイダー: 認証リクエスト
+    OIDCプロバイダー->>ユーザー: ログイン画面表示
+    ユーザー->>OIDCプロバイダー: 認証情報入力
+    OIDCプロバイダー->>クライアント: 認可コード
+    クライアント->>OIDCプロバイダー: コードをトークン交換
+    OIDCプロバイダー->>クライアント: ID/アクセストークン
+    Note over クライアント: IDトークンから<br>ユーザー情報を取得
+    クライアント->>APIサーバー: アクセストークンでAPI利用
+    APIサーバー->>クライアント: データ返却
+`} />
+
+*図3: OpenID Connect フロー*
+
+### 📋 ベストプラクティスと注意点
+
+#### セキュリティ対策
+
+1. **トークンの安全な管理**:
+   - トークンは HTTP Only Cookie または安全なストレージに保存
+   - ローカルストレージは XSS 攻撃に弱いため要注意
+   - アクセストークンの有効期限は短く設定（15〜30分程度）
+
+2. **CSRF 対策**:
+   - State パラメータの使用
+   - SameSite Cookie 属性の設定
+   - CSRF トークンの利用
+
+3. **スコープの最小化**:
+   - 必要最小限の権限だけを要求
+   - スコープごとに異なるトークンの発行を検討
+
+#### 運用上の注意点
+
+1. **トークンの有効期限管理**:
+   - リフレッシュトークンを使用した自動更新機能の実装
+   - トークンの即時無効化（ブラックリスト）の仕組み
+
+2. **複数環境での統合**:
+   - 開発、テスト、本番環境での設定管理
+   - 適切な環境変数の利用
+
+3. **監視とログ記録**:
+   - 不審なアクセス試行の監視
+   - トークン発行・利用ログの記録と分析
+
+### 📝 まとめ
+
+トークンベース認証は、現代のWeb開発において不可欠なセキュリティ技術となっています。本ドキュメントでは、JWT、OAuth 2.0、OpenID Connect の実装方法について解説しました。
+
+- **JWT**: 軽量で自己完結型のトークン形式で、ステートレス認証に最適
+- **OAuth 2.0**: サードパーティのアプリケーションに安全にリソースへのアクセスを許可するための標準フレームワーク
+- **OpenID Connect**: OAuth 2.0 を拡張し、認証機能を追加したプロトコル
+
+これらのトークンベース認証技術を適切に組み合わせることで、安全でスケーラブルな認証システムを構築できます。実装の際は、セキュリティベストプラクティスを遵守し、定期的な監査とアップデートを行うことが重要です。
+
+### 📚 用語解説
+
+| 用語 | 説明 |
+|------|------|
+| JWT | JSON Web Token の略。JSON 形式のデータを Base64URL エンコードし、署名を付与したトークン形式 |
+| OAuth 2.0 | サードパーティアプリケーションに対して、ユーザーの代わりにリソースへのアクセスを許可するための認可フレームワーク |
+| OpenID Connect | OAuth 2.0 の拡張で、認証機能を追加したプロトコル |
+| クレーム | JWT 内に含まれる情報の単位（例：ユーザー ID、権限、有効期限） |
+| アクセストークン | 保護されたリソースへのアクセスを許可する短期間有効なトークン |
+| リフレッシュトークン | アクセストークンの有効期限切れ後に、新しいアクセストークンを取得するために使用される長期間有効なトークン |
+| ID トークン | OpenID Connect で使用される、ユーザー情報を含む JWT |
+| スコープ | OAuth 2.0 や OpenID Connect でリソースへのアクセス範囲を指定するパラメータ |
+| JWKS | JSON Web Key Set の略。公開鍵のセットを JSON 形式で提供するエンドポイント |
