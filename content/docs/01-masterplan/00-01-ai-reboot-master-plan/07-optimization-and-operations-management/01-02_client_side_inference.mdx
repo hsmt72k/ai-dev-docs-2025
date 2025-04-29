@@ -1,0 +1,451 @@
+---
+title: クライアントサイド推論
+description: Client-side Inference
+icon: FerrisWheel
+---
+
+import { Mermaid } from "@/components/mdx/mermaid";
+
+## ブラウザを最大限に活用するクライアントサイド推論の実践
+
+### 🔑 エグゼクティブサマリー
+
+クライアントサイド推論は、AI モデルをサーバーからクライアント（ブラウザ）に移行させることで、レイテンシーの削減、オフライン機能の提供、プライバシー強化、サーバーコスト削減を実現します。WebGPU、WebAssembly、TensorFlow.js は、これらの目標を達成するための重要な技術です。本ドキュメントでは、これらの技術を活用してブラウザ内での ML モデル実行を最適化する方法を解説します。
+
+### 本ドキュメントについて
+
+**想定読者**：
+- フロントエンド開発者
+- AI/ML エンジニア
+- パフォーマンス最適化担当者
+- Web アプリケーションアーキテクト
+
+**対象システム規模**：
+- 中小規模の Web アプリケーション
+- モバイルファーストの PWA（Progressive Web Apps）
+- エッジデバイスで動作する Web アプリケーション
+
+### 🌐 クライアントサイド推論の基礎
+
+クライアントサイド推論とは、AI/ML モデルをユーザーのデバイス上で直接実行することで、サーバーへのリクエスト送信を不要にする手法です。この手法には以下のメリットがあります。
+
+- ネットワークレイテンシーの排除
+- インターネット接続なしでの動作
+- ユーザーデータのローカル処理によるプライバシー強化
+- サーバー負荷とコストの削減
+- リアルタイム処理の実現
+
+しかし、以下の課題も存在します。
+
+- デバイス性能への依存
+- クライアントへの初期ダウンロードサイズの増大
+- デバイス間でのパフォーマンスばらつき
+- バッテリー消費の増加
+
+### 🔧 WebGPU による高速計算の実現
+
+WebGPU は次世代の Web グラフィックス・計算 API で、ブラウザから GPU への直接アクセスを提供します。
+
+#### WebGPU の主な特徴
+
+- ブラウザからの低レベル GPU アクセス
+- 並列計算のための計算シェーダー
+- WebGL と比較して大幅に高速
+- ハードウェアアクセラレーションによる効率的な行列演算
+
+#### 実装ステップ
+
+1. WebGPU のサポート確認
+   ```ts title="src/utils/webgpu-support.ts"
+   if (!navigator.gpu) {
+     console.error('WebGPU はサポートされていません');
+     return;
+   }
+   ```
+
+2. GPU デバイスとコンテキストの初期化
+   ```ts title="src/lib/gpu/device-init.ts"
+   const adapter = await navigator.gpu.requestAdapter();
+   const device = await adapter.requestDevice();
+   ```
+
+3. シェーダーの作成と計算パイプラインのセットアップ
+   ```ts title="src/lib/gpu/compute-pipeline.ts"
+   const shaderModule = device.createShaderModule({
+     code: `
+       @compute @workgroup_size(64)
+       fn main(@builtin(global_invocation_id) id: vec3<u32>) {
+         // 行列演算や AI 推論コード
+       }
+     `
+   });
+   ```
+
+4. バッファの作成とデータ転送
+   ```ts title="src/lib/gpu/buffer-utils.ts"
+   const buffer = device.createBuffer({
+     size: dataSize,
+     usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+   });
+   ```
+
+5. 計算の実行とリザルトの読み取り
+   ```ts title="src/lib/gpu/compute-executor.ts"
+   export async function executeComputation(device, pipeline, bindGroup, workgroupCount, resultSize) {
+     // コマンドエンコーダーの作成
+     const commandEncoder = device.createCommandEncoder();
+
+     // 計算パスの実行
+     const computePass = commandEncoder.beginComputePass();
+     computePass.setPipeline(pipeline);
+     computePass.setBindGroup(0, bindGroup);
+     computePass.dispatchWorkgroups(workgroupCount);
+     computePass.end();
+
+     // 結果の読み取り用バッファ
+     const resultBuffer = device.createBuffer({
+       size: resultSize,
+       usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+     });
+
+     // 結果のコピー
+     commandEncoder.copyBufferToBuffer(
+       outputBuffer, 0,
+       resultBuffer, 0,
+       resultSize
+     );
+
+     // コマンドの実行
+     const commands = commandEncoder.finish();
+     device.queue.submit([commands]);
+
+     // 結果の読み取り
+     await resultBuffer.mapAsync(GPUMapMode.READ);
+     const results = new Float32Array(resultBuffer.getMappedRange());
+     const outputArray = Array.from(results);
+     resultBuffer.unmap();
+
+     return outputArray;
+   }
+   ```
+
+#### 活用事例
+
+- 画像認識モデルの高速実行
+- リアルタイム自然言語処理
+- オーディオ解析と変換
+
+<Mermaid chart={`
+graph TD
+    A[Web アプリケーション] --> B[WebGPU API]
+    B --> C[ブラウザ内 GPU アダプター]
+    C --> D[計算シェーダー]
+    C --> E[レンダリングパイプライン]
+    D --> F[GPU ハードウェア]
+    E --> F
+
+    style A fill:#90CAF9,stroke:#1565C0,color:#000
+    style B fill:#81C784,stroke:#2E7D32,color:#000
+    style C fill:#FFB74D,stroke:#EF6C00,color:#000
+    style D fill:#E57373,stroke:#C62828,color:#000
+    style E fill:#CE93D8,stroke:#7B1FA2,color:#000
+    style F fill:#9FA8DA,stroke:#3949AB,color:#000
+`} />
+
+*図1: WebGPU アーキテクチャの概要図*
+
+### 🛠️ WebAssembly による高性能実行環境
+
+WebAssembly (WASM) は、ブラウザ内で高速な低レベルコード実行を可能にするバイナリ命令形式です。
+
+#### WebAssembly の主な特徴
+
+- ネイティブに近いパフォーマンス
+- C/C++/Rust などから変換可能
+- JavaScript との相互運用性
+- 安全なサンドボックス環境で実行
+
+#### 実装ステップ
+
+1. 最適化されたロジックを C/C++/Rust で記述
+   ```cpp
+   extern "C" {
+     float* run_inference(float* input, int input_size) {
+       // 最適化された推論コード
+     }
+   }
+   ```
+
+2. Emscripten などを使用して WASM にコンパイル
+   ```bash
+   emcc -O3 inference.cpp -o inference.js -s WASM=1 -s EXPORTED_FUNCTIONS='["_run_inference"]'
+   ```
+
+3. ブラウザから WASM モジュールをロード
+   ```javascript
+   const wasmModule = await WebAssembly.instantiateStreaming(
+     fetch('/inference.wasm'),
+     importObject
+   );
+   ```
+
+4. JavaScript から WASM 関数を呼び出し
+   ```javascript
+   const result = wasmModule.instance.exports.run_inference(inputPtr, inputSize);
+   ```
+
+#### 活用事例
+
+- 複雑な数学演算の高速処理
+- 画像・オーディオ処理フィルター
+- 小型 ML モデルの実行
+
+### 📊 TensorFlow.js によるクライアント側 ML 実行
+
+TensorFlow.js は、ブラウザや Node.js で ML モデルをトレーニングおよび実行するための JavaScript ライブラリです。
+
+#### TensorFlow.js の主な特徴
+
+- 事前トレーニング済みモデルの利用
+- ブラウザ内でのモデルトレーニング
+- 複数のバックエンド（WebGL、WebGPU、WASM）をサポート
+- 既存の TensorFlow/PyTorch モデルの変換
+
+#### 実装ステップ
+
+1. TensorFlow.js のインポート
+   ```javascript
+   import * as tf from '@tensorflow/tfjs';
+   import '@tensorflow/tfjs-backend-webgpu';
+   ```
+
+2. バックエンドの設定
+   ```javascript
+   // WebGPU バックエンドを使用（利用可能な場合）
+   await tf.setBackend('webgpu');
+   console.log('使用中のバックエンド:', tf.getBackend());
+   ```
+
+3. モデルのロード
+   ```javascript
+   // 事前トレーニング済みモデルの読み込み
+   const model = await tf.loadGraphModel('path/to/model.json');
+   // または
+   const model = await tf.loadLayersModel('path/to/model.json');
+   ```
+
+4. 推論の実行
+   ```javascript
+   // 入力テンソルの準備
+   const inputTensor = tf.tensor(inputData);
+
+   // 推論実行
+   const output = model.predict(inputTensor);
+
+   // 結果の処理
+   const predictions = await output.array();
+   ```
+
+#### 活用事例
+
+- 顔認識やポーズ検出
+- 自然言語処理（感情分析、テキスト生成）
+- 音声認識と変換
+
+<Mermaid chart={`
+graph TD
+    A[JavaScript/TypeScript] --> B[TensorFlow.js]
+    C[C/C++/Rust] --> D[コンパイル]
+    D --> E[WebAssembly モジュール]
+    B --> F[WASM バックエンド]
+    E --> F
+    B --> G[WebGL バックエンド]
+    B --> H[WebGPU バックエンド]
+    F --> I[高速推論実行]
+    G --> I
+    H --> I
+
+    style A fill:#90CAF9,stroke:#1565C0,color:#000
+    style B fill:#81C784,stroke:#2E7D32,color:#000
+    style C fill:#FFB74D,stroke:#EF6C00,color:#000
+    style D fill:#E57373,stroke:#C62828,color:#000
+    style E fill:#CE93D8,stroke:#7B1FA2,color:#000
+    style F fill:#9FA8DA,stroke:#3949AB,color:#000
+    style G fill:#80DEEA,stroke:#00838F,color:#000
+    style H fill:#FFCC80,stroke:#EF6C00,color:#000
+    style I fill:#A5D6A7,stroke:#2E7D32,color:#000
+`} />
+
+*図2: WebAssembly と TensorFlow.js の連携アーキテクチャ*
+
+### 🚀 パフォーマンス最適化テクニック
+
+クライアントサイド推論を最適化するための重要なテクニックを以下に示します。
+
+#### モデル最適化
+
+- 量子化（8bit、16bit への精度削減）
+- プルーニング（不要なニューロン接続の削除）
+- ディスティレーション（小型モデルへの知識転移）
+- レイヤー融合（計算グラフの最適化）
+
+```javascript
+// TensorFlow.js での量子化モデルのロード例
+const modelURL = 'path/to/quantized_model/model.json';
+const model = await tf.loadGraphModel(modelURL);
+```
+
+#### オンデマンドロード
+
+- 初期ロードを最小化し、必要に応じてモデル部分をロード
+- コード分割と遅延ロードによるパフォーマンス向上
+
+```javascript
+// 必要になった時点でモデルをロード
+async function loadModelOnDemand() {
+  if (!window.aiModel) {
+    window.aiModel = await tf.loadGraphModel('path/to/model.json');
+  }
+  return window.aiModel;
+}
+```
+
+#### Webワーカーの活用
+
+- メインスレッドをブロックせずに推論を実行
+- UI レスポンシブネスの維持
+
+```javascript
+// Web Worker での TensorFlow.js の実行
+// worker.js
+importScripts('tf.min.js');
+
+self.onmessage = async function(e) {
+  const model = await tf.loadGraphModel('path/to/model.json');
+  const inputTensor = tf.tensor(e.data.input);
+  const result = model.predict(inputTensor);
+  const resultData = await result.array();
+  self.postMessage({ result: resultData });
+};
+```
+
+### 🔄 ハイブリッド戦略の実装
+
+多くの場合、純粋なクライアントサイド推論だけでなく、サーバーとの協調が必要です。
+
+#### 適切なタスク分担
+
+- 軽量モデル: クライアント側で実行
+- 大規模モデル: サーバー側で実行
+- プライバシー重視タスク: クライアント側で処理
+
+#### プログレッシブ機能強化
+
+- オフライン環境での基本機能提供
+- オンライン接続時にサーバー側 AI による拡張機能提供
+
+```javascript
+// ネットワーク状態に応じたモデル選択
+async function selectModel(input) {
+  if (navigator.onLine && complexTaskRequired(input)) {
+    return sendToServer(input);
+  } else {
+    const model = await tf.loadGraphModel('path/to/local_model.json');
+    return model.predict(tf.tensor(input));
+  }
+}
+```
+
+#### 継続的な学習と適応
+
+- ユーザーのローカルデータを使用したパーソナライズ
+- Federated Learning による集合的なモデル改善
+
+### 📱 実装例: リアルタイム翻訳アプリ
+
+ブラウザベースの翻訳アプリの実装例を示します。
+
+```javascript
+import * as tf from '@tensorflow/tfjs';
+import '@tensorflow/tfjs-backend-webgpu';
+
+async function setupTranslator() {
+  // WebGPU バックエンドを優先し、フォールバックを設定
+  if (tf.backend().getBackend() === 'webgpu') {
+    await tf.setBackend('webgpu');
+  } else if (navigator.gpu) {
+    await tf.setBackend('webgpu');
+  } else if (tf.findBackend('wasm')) {
+    await tf.setBackend('wasm');
+  } else {
+    await tf.setBackend('webgl');
+  }
+
+  console.log('使用中のバックエンド:', tf.getBackend());
+
+  // 小型翻訳モデルをロード
+  const model = await tf.loadGraphModel('path/to/translator_model.json');
+
+  return {
+    translate: async (text) => {
+      // テキストをトークン化
+      const tokens = tokenize(text);
+      const inputTensor = tf.tensor([tokens]);
+
+      // 推論実行
+      const outputTensor = model.predict(inputTensor);
+      const outputTokens = await outputTensor.array();
+
+      // トークンをテキストに戻す
+      return detokenize(outputTokens[0]);
+    }
+  };
+}
+
+// 使用例
+const translator = await setupTranslator();
+const translated = await translator.translate('Hello, world!');
+document.getElementById('output').textContent = translated;
+```
+
+### 🔍 今後の展望と課題
+
+クライアントサイド推論技術は急速に進化していますが、いくつかの課題と将来の方向性があります。
+
+#### 現在の課題
+
+- ブラウザ間の互換性の違い（特に WebGPU）
+- 大規模モデルのサイズ制限
+- モバイルデバイスの処理能力とバッテリー消費
+
+#### これからの展望
+
+- Transformer ベースの小型モデルの普及
+- ブラウザ標準によるハードウェアアクセス改善
+- エッジ AI とクラウド AI のシームレスな連携
+- WebGPU のさらなる最適化と普及
+
+### まとめ
+
+クライアントサイド推論は、WebGPU、WebAssembly、TensorFlow.js の技術を組み合わせることで、Web アプリケーションに強力な AI 機能を提供します。適切な技術選択と最適化戦略により、ユーザーエクスペリエンスを大幅に向上させながら、プライバシーとオフライン機能を強化することができます。
+
+**ポイント:**
+- WebGPU は高度な並列計算機能を提供
+- WebAssembly は高速な数値計算を可能に
+- TensorFlow.js は使いやすい ML フレームワーク
+- これらの技術を組み合わせることが最も効果的
+
+### 用語解説
+
+| 用語 | 説明 |
+|------|------|
+| WebGPU | ブラウザから GPU にアクセスするための次世代 Web API |
+| WebAssembly (WASM) | ブラウザで動作する低レベルのバイナリフォーマット |
+| TensorFlow.js | ブラウザで動作する JavaScript 向け ML フレームワーク |
+| 推論 (Inference) | 訓練済み ML モデルを使用して予測を行うプロセス |
+| 量子化 (Quantization) | モデルの精度を下げてサイズとパフォーマンスを最適化する技術 |
+| 計算シェーダー | GPU 上で汎用計算を実行するためのプログラム |
+| バックエンド | TensorFlow.js が計算を実行するための基盤技術 (WebGL/WebGPU/WASM) |
+| レイテンシー | 処理開始から結果取得までの時間的遅延 |
+| プルーニング | ML モデルから不要な接続や重みを削除して軽量化する手法 |
+| Federated Learning | デバイス上のデータを共有せずにモデルを協調して改善する技術 |
