@@ -1,0 +1,482 @@
+---
+title: バンドルサイズ最適化
+description: Bundle Size Optimization
+icon: Blocks
+---
+
+import { Mermaid } from "@/components/mdx/mermaid";
+
+## モダンウェブ開発を加速する バンドルサイズ最適化術
+
+### 🔑 エグゼクティブサマリー
+
+バンドルサイズの最適化は現代のウェブ開発において不可欠なプラクティスです。コード分割、遅延ロード、ツリーシェイキングの手法を適切に組み合わせることで、初期ロード時間を短縮し、ユーザーエクスペリエンスを向上させることができます。本ドキュメントでは、これらの技術について詳細に解説し、実装のベストプラクティスを紹介します。結果として、高速で効率的なウェブアプリケーションの構築が可能となります。
+
+### 本ドキュメントについて
+
+**想定読者**:
+- 中級〜上級の Web フロントエンド開発者
+- パフォーマンス最適化に関心のあるエンジニア
+- React, Vue, Angular などのモダンフレームワークを使用している開発者
+
+**対象システム規模**:
+- 中〜大規模の SPA (Single Page Application)
+- マイクロフロントエンドアーキテクチャ
+- エンタープライズグレードの Web アプリケーション
+
+### 🔍 バンドルサイズ最適化の重要性
+
+Web アプリケーションの複雑さが増すにつれて、JavaScript ファイルのサイズも増大します。大きなバンドルサイズは以下の問題を引き起こします。
+
+- 初期ロード時間の増加
+- ユーザーエクスペリエンスの低下
+- モバイルデバイスでの消費データ量増加
+- コンバージョン率への悪影響（ロード時間が 1 秒増えるごとにコンバージョン率が約 7% 低下するという研究結果もあります）
+
+バンドルサイズを最適化することで、これらの問題を解決し、より高速で効率的なウェブアプリケーションを構築できます。
+
+### 🧩 コード分割
+
+#### コード分割とは
+
+コード分割は、アプリケーションを複数の小さなチャンクに分割し、必要なときに必要な部分だけをロードする手法です。
+
+<Mermaid chart={`
+graph TD
+    A[メインバンドル] --> B[ルートコンポーネント]
+    A --> C[共通ユーティリティ]
+    A --> D[コアライブラリ]
+    E[チャンク1: 管理画面] -.必要時にロード.-> B
+    F[チャンク2: ユーザープロフィール] -.必要時にロード.-> B
+    G[チャンク3: データ可視化] -.必要時にロード.-> B
+    style A fill:#1e88e5,stroke:#0d47a1,color:#fff
+    style E fill:#43a047,stroke:#2e7d32,color:#fff
+    style F fill:#43a047,stroke:#2e7d32,color:#fff
+    style G fill:#43a047,stroke:#2e7d32,color:#fff
+`} />
+
+*図1: コード分割の基本概念図*
+
+#### 実装方法
+
+コード分割の実装方法は以下の通りです。
+
+- **React での実装**:
+  ```jsx
+  // 従来の import
+  // import HeavyComponent from './HeavyComponent';
+
+  // 動的 import を使用したコード分割
+  const HeavyComponent = React.lazy(() => import('./HeavyComponent'));
+
+  function MyComponent() {
+    return (
+      <React.Suspense fallback={<div>Loading...</div>}>
+        <HeavyComponent />
+      </React.Suspense>
+    );
+  }
+  ```
+
+- **Vue での実装**:
+  ```javascript
+  // 従来の import
+  // import HeavyComponent from './HeavyComponent.vue';
+
+  // 動的 import を使用したコード分割
+  const HeavyComponent = () => import('./HeavyComponent.vue');
+
+  export default {
+    components: {
+      HeavyComponent
+    }
+  }
+  ```
+
+- **ルートベースの分割**:
+  ルーティングによるコード分割は、特に SPA において効果的です。
+
+  ```js title="React Router での例"
+  import { BrowserRouter, Routes, Route } from 'react-router-dom';
+  import React, { Suspense } from 'react';
+
+  const Home = React.lazy(() => import('./routes/Home'));
+  const Dashboard = React.lazy(() => import('./routes/Dashboard'));
+  const Profile = React.lazy(() => import('./routes/Profile'));
+
+  function App() {
+    return (
+      <BrowserRouter>
+        <Suspense fallback={<div>Loading...</div>}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/profile" element={<Profile />} />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    );
+  }
+  ```
+
+#### コード分割のベストプラクティス
+
+コード分割を効果的に行うためのベストプラクティスは以下の通りです。
+
+- ルートベースで分割する（ページ単位）
+- 大きなサードパーティライブラリを別チャンクに分割する
+- 条件付きでレンダリングされる大きなコンポーネントを分割する
+- チャンクサイズを監視し、適切なサイズに保つ（理想的には 100-200KB 程度）
+- プリロードヒントを活用して UX を向上させる
+
+### 🚀 遅延ロード
+
+#### 遅延ロードとは
+
+遅延ロード（Lazy Loading）は、コンテンツが実際に必要になるまでその読み込みを延期する技術です。これにより初期ロード時間が短縮され、リソースを効率的に使用できます。
+
+<Mermaid chart={`
+sequenceDiagram
+    participant User as ユーザー
+    participant App as アプリケーション
+    participant Server as サーバー
+
+    User->>App: アプリ訪問
+    App->>Server: 初期リソースのみリクエスト
+    Server->>App: 初期リソース提供
+    App->>User: アプリ表示
+    Note over User,App: スクロールダウンまたは特定のアクションを実行
+    User->>App: 追加コンテンツ領域に到達
+    App->>Server: 追加リソースをリクエスト
+    Server->>App: 追加リソース提供
+    App->>User: 追加コンテンツ表示
+    style User fill:#ffcc80,stroke:#ef6c00,color:#000
+    style App fill:#81d4fa,stroke:#0288d1,color:#000
+    style Server fill:#a5d6a7,stroke:#388e3c,color:#000
+`} />
+
+*図2: 遅延ロードの流れ*
+
+#### 実装方法
+
+遅延ロードの主な実装方法は以下の通りです。
+
+- **コンポーネントの遅延ロード**:
+  前述のコード分割と組み合わせて使用されます。
+
+- **画像の遅延ロード**:
+  ```html
+  <!-- 従来の画像ロード -->
+  <!-- <img src="heavy-image.jpg" alt="説明"> -->
+
+  <!-- 遅延ロードを使用した画像 -->
+  <img
+    loading="lazy"
+    src="heavy-image.jpg"
+    alt="説明"
+  >
+  ```
+
+- **Intersection Observer API を使用したカスタム実装**:
+  ```javascript
+  const observer = new IntersectionObserver((entries, observer) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        const lazyElement = entry.target;
+        const src = lazyElement.dataset.src;
+
+        if (lazyElement.tagName === 'IMG') {
+          lazyElement.src = src;
+        } else {
+          lazyElement.style.backgroundImage = `url(${src})`;
+        }
+
+        observer.unobserve(lazyElement);
+      }
+    });
+  });
+
+  document.querySelectorAll('.lazy-load').forEach(element => {
+    observer.observe(element);
+  });
+  ```
+
+#### 遅延ロードのベストプラクティス
+
+遅延ロードを実装する際のベストプラクティスは以下の通りです。
+
+- ファーストビューの外にあるコンテンツに適用する
+- 画像には適切な `width` と `height` 属性を設定し、レイアウトシフトを防ぐ
+- ローディング状態を適切に表示し、ユーザーに視覚的フィードバックを提供する
+- 重要なコンテンツには使用せず、初期ロードに含める
+- SEO への影響を考慮する（特に重要なコンテンツの場合）
+
+### 🌳 ツリーシェイキング
+
+#### ツリーシェイキングとは
+
+ツリーシェイキングは、未使用のコードを最終的なバンドルから取り除く最適化技術です。「使われていないコードを振り落とす」というイメージから名付けられました。
+
+<Mermaid chart={`
+graph TD
+    A[ソースコード全体] --> B{ツリーシェイキング処理}
+    B --> C[使用されているコード]
+    B --> D[未使用のコード]
+    C --> E[最終バンドル]
+    D -. 除外 .-> E
+    style A fill:#ffcc80,stroke:#ef6c00,color:#000
+    style B fill:#ce93d8,stroke:#8e24aa,color:#000
+    style C fill:#a5d6a7,stroke:#388e3c,color:#000
+    style D fill:#ef9a9a,stroke:#d32f2f,color:#000
+    style E fill:#90caf9,stroke:#1976d2,color:#000
+`} />
+
+*図3: ツリーシェイキングの概念図*
+
+#### 実装方法
+
+ツリーシェイキングはビルドツールによって自動的に行われますが、効果的に機能させるためにはいくつかの条件が必要です。
+
+- **ES Modules の使用**:
+  ツリーシェイキングは ES Modules の静的構造に依存しています。
+
+  ```javascript
+  // ツリーシェイキングが機能する ES Modules 形式
+  import { useState, useEffect } from 'react';
+
+  // CommonJS 形式はツリーシェイキングが困難
+  // const { useState, useEffect } = require('react');
+  ```
+
+- **サイドエフェクトの適切な扱い**:
+  `package.json` に `sideEffects` フィールドを設定して、サイドエフェクトのあるファイルを指定します。
+
+  ```json
+  {
+    "name": "my-library",
+    "version": "1.0.0",
+    "sideEffects": [
+      "*.css",
+      "./src/some-side-effect.js"
+    ]
+  }
+  ```
+
+- **webpack の設定例**:
+  ```js title="webpack.config.js"
+  module.exports = {
+    mode: 'production', // 本番モードでツリーシェイキングが有効になる
+    optimization: {
+      usedExports: true, // 使用されている export のみを保持
+      minimize: true     // コードの最小化
+    }
+  };
+  ```
+
+#### ツリーシェイキングのベストプラクティス
+
+ツリーシェイキングを最大限に活用するためのベストプラクティスは以下の通りです。
+
+- 常に ES Modules 形式で import/export を行う
+- サードパーティライブラリは ES Modules 形式をサポートしているものを選ぶ
+- 大きなライブラリから特定の関数だけをインポートする
+  ```javascript
+  // 良い例: 必要な関数のみをインポート
+  import { isEqual } from 'lodash-es';
+
+  // 避けるべき例: ライブラリ全体をインポート
+  // import _ from 'lodash';
+  // _.isEqual(a, b);
+  ```
+- package.json の `sideEffects` フィールドを適切に設定する
+- バンドルアナライザーツール（webpack-bundle-analyzer など）を使用して効果を検証する
+
+### 📊 バンドルサイズ最適化の効果測定
+
+バンドルサイズ最適化を実装した後、その効果を測定することが重要です。効果測定の方法は以下の通りです。
+
+- **バンドルアナライザーの使用**:
+  webpack-bundle-analyzer などのツールを使用して、バンドルのサイズと構成を視覚化します。
+
+- **パフォーマンス指標の測定**:
+  - 初期ロード時間（FCP - First Contentful Paint）
+  - インタラクション可能になるまでの時間（TTI - Time to Interactive）
+  - 累積レイアウトシフト（CLS - Cumulative Layout Shift）
+  - Lighthouse スコア
+
+- **実際のユーザーデータの収集**:
+  実際のユーザーから収集した RUM（Real User Monitoring）データを分析します。
+
+### 🔧 実装例：フレームワーク別アプローチ
+
+#### React での実装
+
+React でのバンドルサイズ最適化は以下の方法で実現できます。
+
+- **React.lazy と Suspense を使用したコード分割**:
+  ```jsx
+  import React, { Suspense } from 'react';
+
+  const LazyComponent = React.lazy(() => import('./LazyComponent'));
+
+  function App() {
+    return (
+      <div>
+        <Suspense fallback={<div>Loading...</div>}>
+          <LazyComponent />
+        </Suspense>
+      </div>
+    );
+  }
+  ```
+
+- **動的インポートを使用したルートレベルの分割**:
+  ```jsx
+  import { BrowserRouter, Routes, Route } from 'react-router-dom';
+  import React, { Suspense } from 'react';
+
+  const Home = React.lazy(() => import('./routes/Home'));
+  const Dashboard = React.lazy(() => import('./routes/Dashboard'));
+
+  function App() {
+    return (
+      <BrowserRouter>
+        <Suspense fallback={<div>Loading...</div>}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    );
+  }
+  ```
+
+#### Vue での実装
+
+Vue でのバンドルサイズ最適化は以下の方法で実現できます。
+
+- **コンポーネントの非同期読み込み**:
+  ```javascript
+  // Vue 2
+  const AsyncComponent = () => import('./AsyncComponent.vue');
+
+  // Vue 3 (Composition API)
+  import { defineAsyncComponent } from 'vue';
+  const AsyncComponent = defineAsyncComponent(() =>
+    import('./AsyncComponent.vue')
+  );
+  ```
+
+- **Vue Router での遅延ロード**:
+  ```javascript
+  // Vue Router
+  const routes = [
+    {
+      path: '/',
+      component: () => import('./views/Home.vue')
+    },
+    {
+      path: '/dashboard',
+      component: () => import('./views/Dashboard.vue')
+    }
+  ];
+  ```
+
+#### Angular での実装
+
+Angular でのバンドルサイズ最適化は以下の方法で実現できます。
+
+- **モジュールの遅延ロード**:
+  ```ts title="app-routing.module.ts"
+  const routes: Routes = [
+    { path: '', component: HomeComponent },
+    {
+      path: 'dashboard',
+      loadChildren: () => import('./dashboard/dashboard.module')
+        .then(m => m.DashboardModule)
+    }
+  ];
+  ```
+
+- **プリロードの戦略設定**:
+  ```typescript
+  @NgModule({
+    imports: [
+      RouterModule.forRoot(routes, {
+        preloadingStrategy: PreloadAllModules // or custom strategy
+      })
+    ],
+    exports: [RouterModule]
+  })
+  export class AppRoutingModule { }
+  ```
+
+### 🛡️ 落とし穴と対処法
+
+バンドルサイズ最適化には以下のような落とし穴があります。
+
+- **過度の分割**:
+  小さすぎるチャンクに分割すると、HTTP リクエストの増加によりパフォーマンスが低下することがあります。
+
+  **対処法**: 適切なサイズ（100KB〜200KB 程度）のチャンクに分割する。
+
+- **キャッシュの問題**:
+  ハッシュがない場合、更新されたコードがキャッシュされて反映されないことがあります。
+
+  **対処法**: コンテンツハッシュを含むファイル名を使用する。
+
+  ```js title="webpack.config.js"
+  module.exports = {
+    output: {
+      filename: '[name].[contenthash].js'
+    }
+  };
+  ```
+
+- **重複コードの問題**:
+  複数のチャンクに同じコードが含まれることがあります。
+
+  **対処法**: 共通モジュールを抽出する設定を行う。
+
+  ```js title="webpack.config.js"
+  module.exports = {
+    optimization: {
+      splitChunks: {
+        chunks: 'all',
+        cacheGroups: {
+          vendor: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'vendors',
+            chunks: 'all'
+          }
+        }
+      }
+    }
+  };
+  ```
+
+### 📈 まとめ
+
+バンドルサイズ最適化は、ウェブアプリケーションのパフォーマンスを向上させるための重要な手法です。
+
+- **コード分割**は、アプリケーションを必要な部分に分割し、初期ロード時間を短縮します。
+- **遅延ロード**は、コンテンツが必要になるまでその読み込みを延期し、リソースを効率的に使用します。
+- **ツリーシェイキング**は、未使用のコードを除去し、バンドルサイズを削減します。
+
+これらの技術を組み合わせることで、高速で効率的なウェブアプリケーションを構築できます。最適化は継続的なプロセスであり、定期的に効果を測定し、必要に応じて調整することが重要です。
+
+### 用語解説
+
+| 用語 | 説明 |
+|------|------|
+| バンドル | Webpack や Rollup などのモジュールバンドラーによって生成された、複数の JavaScript ファイルを結合した単一のファイル |
+| チャンク | バンドルの一部として分割された JavaScript ファイル |
+| コード分割 | アプリケーションを複数の小さなチャンクに分割する技術 |
+| 遅延ロード | コンテンツが必要になるまで読み込みを延期する技術 |
+| ツリーシェイキング | 未使用のコードを最終的なバンドルから除去する技術 |
+| ES Modules | JavaScript の公式モジュールシステム（import/export 構文） |
+| 動的インポート | 実行時に必要に応じてモジュールを読み込む機能（`import()` 構文） |
+| サイドエフェクト | プログラムの状態を変更する、または外部と相互作用するコード |
+| FCP | First Contentful Paint - 最初のコンテンツが表示されるまでの時間 |
+| TTI | Time to Interactive - ページがインタラクティブになるまでの時間 |
