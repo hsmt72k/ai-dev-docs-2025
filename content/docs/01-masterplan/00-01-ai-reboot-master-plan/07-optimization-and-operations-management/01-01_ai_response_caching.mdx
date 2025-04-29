@@ -1,0 +1,882 @@
+---
+title: AI レスポンスのキャッシング
+description: AI Response Caching
+icon: AppWindowMac
+---
+
+import { Mermaid } from "@/components/mdx/mermaid";
+
+## AI パワード開発を加速する：フロントエンドでのAIレスポンスキャッシング戦略
+
+### 🔑 エグゼクティブサマリー
+
+AI API との効率的な連携には、レスポンスのキャッシングが不可欠です。本ドキュメントでは、React アプリケーションにおける AI レスポンスキャッシングを実現する3つの主要ライブラリ（SWR、React Query、RTK Query）の実装方法を解説します。これらのライブラリを活用することで、API コール削減、ユーザー体験向上、コスト効率化を実現できます。特に高価な AI API 呼び出しにおいては、適切なキャッシュ戦略の実装が運用コストを大幅に削減する鍵となります。
+
+### 本ドキュメントについて
+
+**想定読者**:
+- React を使った Web アプリケーション開発者
+- AI API（OpenAI、Anthropic、Google など）を活用したアプリケーションを構築している開発者
+- パフォーマンスとコスト最適化に取り組むフロントエンドエンジニア
+
+**対象システム規模**:
+- 中小規模の Web アプリケーション
+- AI 機能を提供する SaaS プロダクト
+- エンタープライズ向け AI 統合ソリューション
+
+### 🧩 AIレスポンスキャッシングの基本
+
+AI レスポンスのキャッシングは、特に以下の理由から重要です。
+
+- **コスト削減**: AI API 呼び出しはトークン単位で課金されることが多く、不要な呼び出しを減らすことでコストを削減できます
+- **レイテンシ改善**: キャッシュからの即時応答により、ユーザー体験が向上します
+- **サーバー負荷軽減**: 同一リクエストの重複処理を避けることができます
+- **オフライン対応**: キャッシュされたデータを活用し、ネットワーク接続なしでも機能を提供できます
+
+キャッシングを実装する際の基本的な考慮事項は以下の通りです。
+
+- キャッシュキーの設計（プロンプト、パラメータの組み合わせ）
+- キャッシュの有効期限設定
+- ステータス管理（ローディング、エラー、成功）
+- データの永続化ポリシー
+
+### 🔧 SWR によるキャッシング実装
+
+[SWR](https://swr.vercel.app/) は Vercel が開発した React フックライブラリで、「Stale-While-Revalidate」というキャッシュ戦略を採用しています。まずキャッシュからデータを返し、その後バックグラウンドで再検証するアプローチです。
+
+#### SWRの基本実装
+
+```tsx title="src/components/ai-component.tsx"
+import useSWR from 'swr'
+
+// AI APIのフェッチャー関数
+const aiResponseFetcher = async (prompt) => {
+  const response = await fetch('/api/ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt })
+  })
+  return response.json()
+}
+
+function AIComponent({ prompt }) {
+  const { data, error, isLoading } = useSWR(
+    prompt ? ['aiResponse', prompt] : null,
+    ([_, promptValue]) => aiResponseFetcher(promptValue),
+    {
+      revalidateOnFocus: false, // 画面フォーカス時に再検証しない
+      dedupingInterval: 60000, // 1分間は同じリクエストを重複させない
+      keepPreviousData: true  // 新しいデータ取得中も古いデータを表示
+    }
+  )
+
+  if (isLoading) return <div>AI生成中...</div>
+  if (error) return <div>エラーが発生しました</div>
+
+  return <div>{data?.response}</div>
+}
+```
+
+#### SWRキャッシュの設定オプション
+
+SWRでAIレスポンスをキャッシュする際の主要設定オプションは以下の通りです。
+
+- **`revalidateOnFocus`**: ユーザーがページにフォーカスを戻した時に再検証するか
+- **`revalidateOnReconnect`**: インターネット接続が復帰した時に再検証するか
+- **`revalidateIfStale`**: キャッシュが古い場合に自動的に再検証するか
+- **`dedupingInterval`**: 一定時間内の同一リクエストをまとめる時間（ミリ秒）
+- **`fallbackData`**: データがないときに表示する初期値
+- **`onSuccess`/`onError`**: データ取得成功/失敗時に実行されるコールバック
+
+#### SWRのキャッシュフロー
+
+<Mermaid chart={`
+flowchart TD
+    A[ユーザーリクエスト] --> B{キャッシュ\n存在チェック}
+    B -- キャッシュあり --> C[キャッシュから\nデータ返却]
+    B -- キャッシュなし --> D[API リクエスト]
+    D --> E[データ取得]
+    E --> F[キャッシュに保存]
+    F --> G[データ返却]
+    C --> H{stale チェック}
+    H -- 古いデータ --> I[バックグラウンドで\n再検証]
+    I --> J[キャッシュ更新]
+    style B fill:#90EE90,stroke:#006400,color:#000
+    style C fill:#87CEFA,stroke:#0047AB,color:#000
+    style F fill:#FFD700,stroke:#B8860B,color:#000
+    style I fill:#FF6347,stroke:#8B0000,color:#000
+`} />
+
+*図1: SWR のキャッシングフロー - 古いデータを表示しながらバックグラウンドで再検証*
+
+### 🛡️ React Queryによるキャッシング実装
+
+[React Query](https://tanstack.com/query/latest) は TanStack が開発するデータフェッチングライブラリで、豊富な機能とより細かな制御が可能です。
+
+#### React Queryの基本実装
+
+```tsx title="src/app/tsx"
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import AIComponent from './components/AIComponent'; // AIComponent をインポート
+
+// QueryClientのインスタンス作成
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5分間はデータを新鮮と見なす
+      cacheTime: 30 * 60 * 1000, // 30分間はキャッシュを保持
+    },
+  },
+});
+
+// プロバイダーの設定
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AIComponent prompt="リアクトとは何ですか？" />
+    </QueryClientProvider>
+  );
+}
+
+export default App;
+```
+
+```tsx title="src/components/ai-component.tsx"
+import { useQuery } from '@tanstack/react-query';
+
+// AI APIのフェッチャー関数 (components ディレクトリの外に移動することも考えられます)
+const fetchAIResponse = async (prompt) => {
+  const response = await fetch('/api/ai', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ prompt }),
+  });
+  return response.json();
+};
+
+// AIコンポーネントの実装
+function AIComponent({ prompt }) {
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['aiResponse', prompt],
+    queryFn: () => fetchAIResponse(prompt),
+    enabled: !!prompt, // promptが存在する場合のみクエリを実行
+  });
+
+  if (isLoading) return <div>AI処理中...</div>;
+  if (error) return <div>エラーが発生しました</div>;
+
+  return <div>{data?.response}</div>;
+}
+
+export default AIComponent;
+```
+
+```ts title="src/app/api/ai/route.ts"
+import { NextResponse } from 'next/server';
+
+export async function POST(request: Request) {
+  const { prompt } = await request.json();
+
+  // ここで AI モデルとの連携処理を記述
+  // 例: const aiResponse = await callMyAIModel(prompt);
+  const aiResponse = { response: `AIによる「${prompt}」への回答です (App Router)。` };
+
+  return NextResponse.json(aiResponse);
+}
+```
+
+#### React Queryのキャッシュ設定
+
+React Query では以下の重要な設定でキャッシュ挙動をカスタマイズできます。
+
+- **`staleTime`**: データが「古い」と見なされるまでの時間（ミリ秒）
+- **`cacheTime`**: 未使用データがキャッシュから削除されるまでの時間（ミリ秒）
+- **`refetchOnMount`**: コンポーネントマウント時に再取得するか
+- **`refetchOnWindowFocus`**: ウィンドウフォーカス時に再取得するか
+- **`refetchOnReconnect`**: ネットワーク再接続時に再取得するか
+- **`retry`**: エラー時の再試行回数
+
+#### React Query でのキャッシュ無効化とプリフェッチ
+
+```tsx title="src/components/ai-component.tsx（抜粋）"
+// キャッシュの手動無効化
+queryClient.invalidateQueries({ queryKey: ['aiResponse'] })
+
+// 特定のキーのみ無効化
+queryClient.invalidateQueries({ queryKey: ['aiResponse', '特定のプロンプト'] })
+
+// 事前データ取得（プリフェッチ）
+await queryClient.prefetchQuery({
+  queryKey: ['aiResponse', 'よく使われるプロンプト'],
+  queryFn: () => fetchAIResponse('よく使われるプロンプト')
+})
+```
+
+#### React Queryのキャッシュ構造
+
+<Mermaid chart={`
+flowchart TD
+    A[React Query] --> B[QueryClient]
+    B --> C[QueryCache]
+    C --> D[クエリキー]
+    D --> E[クエリデータ]
+    D --> F[クエリステータス]
+    B --> G[設定]
+    G --> H[staleTime]
+    G --> I[cacheTime]
+    G --> J[retry ポリシー]
+    E --> K[AI レスポンス]
+    style A fill:#87CEFA,stroke:#0047AB,color:#000
+    style B fill:#90EE90,stroke:#006400,color:#000
+    style C fill:#FFD700,stroke:#B8860B,color:#000
+    style E fill:#FF6347,stroke:#8B0000,color:#000
+    style K fill:#FF6347,stroke:#8B0000,color:#000
+`} />
+
+*図2: React Query のキャッシュ構造 - QueryClient と QueryCache による管理*
+
+### 🧠 RTK Queryによるキャッシング実装
+
+[RTK Query](https://redux-toolkit.js.org/rtk-query/overview) は Redux Toolkit の一部として提供されるデータフェッチング・キャッシングライブラリです。Redux エコシステムとの統合に優れています。
+
+#### RTK Queryの基本実装
+
+```ts title="src/app/lib/redux/store.ts"
+'use client'
+
+import { configureStore } from '@reduxjs/toolkit'
+import { aiApi } from './api'
+
+// ストア設定
+export const store = configureStore({
+  reducer: {
+    [aiApi.reducerPath]: aiApi.reducer,
+  },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware().concat(aiApi.middleware),
+})
+```
+
+```ts title="src/app/lib/redux/api.ts"
+'use client'
+
+import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react'
+
+// API定義
+export const aiApi = createApi({
+  reducerPath: 'aiApi',
+  baseQuery: fetchBaseQuery({ baseUrl: '/api/' }),
+  endpoints: (builder) => ({
+    getAIResponse: builder.query({
+      query: (prompt) => ({
+        url: 'ai',
+        method: 'POST',
+        body: { prompt }
+      }),
+      // キャッシュキーとなるプロンプトを正規化
+      transformResponse: (response) => response,
+      // キャッシュライフタイム設定
+      keepUnusedDataFor: 300, // 5分間
+    }),
+  }),
+})
+
+// フックのエクスポート
+export const { useGetAIResponseQuery } = aiApi
+```
+
+```tsx title="src/app/providers.tsx"
+'use client'
+
+import { Provider } from 'react-redux'
+import { store } from './lib/redux/store'
+
+export function Providers({ children }) {
+  return (
+    <Provider store={store}>
+      {children}
+    </Provider>
+  )
+}
+```
+
+```tsx title="src/components/ai-component.tsx"
+'use client'
+
+import { useGetAIResponseQuery } from '../lib/redux/api'
+
+export default function AIComponent({ prompt }) {
+  const { data, error, isLoading } = useGetAIResponseQuery(prompt, {
+    skip: !prompt, // promptがない場合はクエリをスキップ
+  })
+
+  if (isLoading) return <div>AI処理中...</div>
+  if (error) return <div>エラーが発生しました: {error.message}</div>
+
+  return <div>{data?.response}</div>
+}
+```
+
+```tsx title="src/app/page.tsx"
+import AIComponent from '@/components/ai-component'
+
+export default function Home() {
+  return (
+    <main>
+      <AIComponent prompt="RTK Queryとは何ですか？" />
+    </main>
+  )
+}
+```
+
+#### RTK Queryのキャッシュタグシステム
+
+RTK Query の強力な機能の一つが「タグベースの無効化」です。これにより、関連するキャッシュを一括で無効化できます。
+
+```ts title="src/app/lib/redux/ai-slice.ts"
+const aiApi = createApi({
+  reducerPath: 'aiApi',
+  baseQuery: fetchBaseQuery({ baseUrl: '/api/' }),
+  tagTypes: ['AIResponse', 'UserContext'],
+  endpoints: (builder) => ({
+    getAIResponse: builder.query({
+      query: (prompt) => ({
+        url: 'ai',
+        method: 'POST',
+        body: { prompt }
+      }),
+      // タグの付与
+      providesTags: (result, error, prompt) => [
+        { type: 'AIResponse', id: prompt },
+        'AIResponse'
+      ]
+    }),
+    updateUserContext: builder.mutation({
+      query: (newContext) => ({
+        url: 'context',
+        method: 'PUT',
+        body: newContext
+      }),
+      // タグの無効化
+      invalidatesTags: ['AIResponse', 'UserContext']
+    }),
+  }),
+})
+
+export const {
+  useGetAIResponseQuery,
+  useUpdateUserContextMutation
+} = aiApi
+```
+
+この例では、ユーザーコンテキストが更新されると、すべての AI レスポンスのキャッシュが無効化されます。
+
+#### RTK Queryのキャッシング構造
+
+<Mermaid chart={`
+flowchart TD
+    A[RTK Query] --> B[キャッシュ設定]
+    B --> C[タグベースの\n無効化]
+    B --> D[キャッシュ\nライフタイム]
+    B --> E[再取得\nポリシー]
+    A --> F[API エンドポイント定義]
+    F --> G[クエリ]
+    F --> H[ミューテーション]
+    G --> I[自動キャッシング]
+    H --> J[キャッシュ\n無効化トリガー]
+    style A fill:#87CEFA,stroke:#0047AB,color:#000
+    style B fill:#90EE90,stroke:#006400,color:#000
+    style F fill:#FFD700,stroke:#B8860B,color:#000
+    style I fill:#FF6347,stroke:#8B0000,color:#000
+    style J fill:#FF6347,stroke:#8B0000,color:#000
+`} />
+
+*図3: RTK Query のキャッシング構造 - タグベースの無効化システム*
+
+### 📊 ライブラリ比較と選定指針
+
+各ライブラリにはそれぞれ特徴があり、プロジェクト要件に応じて最適なものを選択する必要があります。
+
+| 特徴 | SWR | React Query | RTK Query |
+|------|-----|-------------|-----------|
+| **バンドルサイズ** | 最小 | 中程度 | Redux含め大きめ |
+| **セットアップの複雑さ** | シンプル | 中程度 | Redux知識が必要 |
+| **キャッシュ制御** | 基本的 | 詳細な制御可能 | Redux統合型 |
+| **自動再検証** | 標準機能 | カスタマイズ可能 | ポリシー設定可能 |
+| **開発元** | Vercel | TanStack | Redux Team |
+| **タグシステム** | なし | 基本的なキー | 強力なタグシステム |
+| **Reduxとの統合** | 不要 | 不要 | ネイティブ対応 |
+| **デバッグツール** | 制限あり | React Query Devtools | Redux DevTools |
+
+#### 選定の指針
+
+- **既存の Redux アプリケーション**: RTK Query を選択すると統合が容易
+- **軽量なソリューション**: SWR はシンプルで軽量
+- **高度なキャッシュ制御**: React Query は詳細な設定が可能
+- **学習コスト**: SWR は学習が最も容易
+
+### 🔄 AIレスポンスキャッシングの応用パターン
+
+#### 1. コンテキスト依存キャッシュ
+
+ユーザーコンテキストに応じてキャッシュキーを変更する実装例です。
+
+```tsx title="src/components/ai-assistant.tsx"
+// React Queryでのコンテキスト依存キャッシュ
+function AIAssistant({ prompt, userId, contextId }) {
+  const { data } = useQuery({
+    // コンテキストを含めたキャッシュキー
+    queryKey: ['aiResponse', prompt, userId, contextId],
+    queryFn: () => fetchAIResponse({ prompt, userId, contextId }),
+    staleTime: 5 * 60 * 1000, // 5分
+  })
+
+  return <div>{data?.response}</div>
+}
+```
+
+#### 2. 階層的キャッシュ無効化
+
+特定の条件に基づいて関連キャッシュを無効化する例です。
+
+```ts title="src/app/lib/redux/features/ai/api-slice.ts"
+// RTK Queryでの階層的キャッシュ無効化
+const aiApi = createApi({
+  // 省略...
+  tagTypes: ['AIResponse', 'User', 'Document'],
+  endpoints: (builder) => ({
+    getAIResponse: builder.query({
+      query: (params) => (/* 省略 */),
+      providesTags: (result, error, params) => [
+        { type: 'AIResponse', id: params.prompt },
+        { type: 'User', id: params.userId },
+        { type: 'Document', id: params.documentId }
+      ]
+    }),
+    updateDocument: builder.mutation({
+      query: (params) => (/* 省略 */),
+      // 特定ドキュメントに関連するAIレスポンスを無効化
+      invalidatesTags: (result, error, params) => [
+        { type: 'Document', id: params.id },
+        // ドキュメントに関連するAIレスポンスのみ無効化
+      ]
+    })
+  })
+})
+```
+
+#### 3. パーシステントキャッシング
+
+ブラウザセッション間でもキャッシュを保持する例です。
+
+```ts title="src/lib/query-client.ts"
+// React Queryでのパーシステントキャッシュ
+import { persistQueryClient } from '@tanstack/react-query-persist-client'
+import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      cacheTime: 1000 * 60 * 60 * 24, // 24時間
+    },
+  },
+})
+
+// ローカルストレージを使用したパーシスター
+const localStoragePersister = createSyncStoragePersister({
+  storage: window.localStorage,
+})
+
+// キャッシュの永続化設定
+persistQueryClient({
+  queryClient,
+  persister: localStoragePersister,
+  // AIレスポンスのみ永続化する設定
+  dehydrateOptions: {
+    shouldDehydrateQuery: (query) => {
+      return query.queryKey[0] === 'aiResponse'
+    },
+  },
+})
+```
+
+### ⚙️ 実装のベストプラクティス
+
+AIレスポンスのキャッシングを効果的に実装するためのベストプラクティスを紹介します。
+
+#### キャッシュキーの設計
+
+キャッシュの効率は適切なキャッシュキーの設計に大きく依存します。
+
+- **正規化されたプロンプト**: 空白や大文字小文字の違いを正規化してキャッシュヒット率を向上させます
+- **パラメータのシリアライズ**: AI APIに送信する全パラメータを含めることで正確なキャッシングが可能です
+- **コンテキスト分離**: ユーザー固有のコンテキストがある場合は、キャッシュキーに含めます
+
+```ts title="プロンプトの正規化とパラメータを含めたキャッシュキー"
+const cacheKey = JSON.stringify({
+  prompt: prompt.trim().toLowerCase(),
+  temperature: 0.7,
+  max_tokens: 1000,
+  userId: currentUser.id
+})
+```
+
+#### キャッシュ有効期限の戦略
+
+AIレスポンスのキャッシュ期間は用途によって最適化が必要です。
+
+- **時間依存コンテンツ**: ニュースや現在のイベントに関するAIレスポンスは短い有効期限（数分～数時間）
+- **知識ベースコンテンツ**: 一般的な知識や説明は長い有効期限（数日～数週間）
+- **パーソナライズドコンテンツ**: ユーザーの変化に応じて無効化する仕組みが必要
+
+#### エラーハンドリングとリトライ
+
+AI APIは時に一時的な障害が発生するため、適切なエラー処理が重要です。
+
+```tsx title="React Queryでのリトライ設定"
+const { data, error, isLoading } = useQuery({
+  queryKey: ['aiResponse', prompt],
+  queryFn: () => fetchAIResponse(prompt),
+  retry: 3,  // 最大3回リトライ
+  retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // 指数バックオフ
+  onError: (error) => {
+    // エラーのログ記録
+    console.error('AI API error:', error);
+    // 必要に応じてエラー通知
+    notifyUser('AIレスポンスの取得に失敗しました');
+  }
+})
+```
+
+#### キャッシュサイズの管理
+
+大量の AI レスポンスをキャッシュする場合、メモリ使用量の管理が必要です。
+
+- **TTL (Time-To-Live)**: 未使用キャッシュの自動削除
+- **LRU (Least Recently Used)**: 古いキャッシュから削除
+- **キャッシュサイズ制限**: 最大キャッシュエントリ数の設定
+
+```tsx title="React Queryでのキャッシュサイズ制限"
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      cacheTime: 1000 * 60 * 60, // 1時間
+    },
+  },
+  // キャッシュサイズ制限の設定
+  queryCache: new QueryCache({
+    onError: (error) => {
+      console.error('Cache error:', error)
+    },
+    // メモリに優しい設定
+    config: {
+      // 最大100件のクエリをキャッシュ
+      maxQueries: 100,
+    }
+  })
+})
+```
+
+### 🔐 セキュリティと機密データの考慮事項
+
+AIレスポンスには機密情報が含まれる可能性があるため、セキュリティに配慮が必要です。
+
+#### 機密データのキャッシング
+
+- **オプトアウトメカニズム**: 機密性の高いプロンプトはキャッシュをスキップ
+- **データマスキング**: キャッシュキーから機密情報を除外
+- **暗号化**: ローカルストレージに保存する場合は暗号化を検討
+
+```tsx title="機密プロンプトのキャッシュをスキップ"
+function useAIResponse(prompt, options = {}) {
+  const { isConfidential = false } = options;
+
+  return useQuery({
+    queryKey: ['aiResponse', prompt],
+    queryFn: () => fetchAIResponse(prompt),
+    // 機密プロンプトの場合はキャッシュなし
+    cacheTime: isConfidential ? 0 : 1000 * 60 * 60,
+    staleTime: isConfidential ? 0 : 1000 * 60 * 5,
+  });
+}
+```
+
+#### ユーザーごとのキャッシュ分離
+
+複数ユーザーが同じアプリケーションを使用する場合、適切なキャッシュ分離が重要です。
+
+```tsx title="RTK Query でのユーザーごとのキャッシュ分離"
+const aiApi = createApi({
+  reducerPath: 'aiApi',
+  baseQuery: fetchBaseQuery({
+    baseUrl: '/api/',
+    prepareHeaders: (headers, { getState }) => {
+      // 認証トークンの追加
+      const token = getState().auth.token;
+      if (token) {
+        headers.set('authorization', `Bearer ${token}`);
+      }
+      return headers;
+    },
+  }),
+  endpoints: (builder) => ({
+    getAIResponse: builder.query({
+      query: (params) => ({
+        url: 'ai',
+        method: 'POST',
+        body: params
+      }),
+      // ユーザーIDをキャッシュキーに含める
+      serializeQueryArgs: ({ queryArgs, endpointName }) => {
+        const { userId, ...rest } = queryArgs;
+        return `${endpointName}-${userId}-${JSON.stringify(rest)}`;
+      },
+    }),
+  }),
+})
+```
+
+### 📱 モバイル対応とオフライン機能
+
+モバイルデバイスやオフライン環境でのAIレスポンスキャッシング戦略は特に重要です。
+
+#### オフラインファーストアプローチ
+
+```tsx title="SWR でのオフラインサポート"
+import useSWR from 'swr'
+import localforage from 'localforage'
+
+// オフラインストレージ用のPersistConfigurationの設定
+const swrPersistConfig = {
+  storage: localforage,
+  key: 'ai-response-cache',
+}
+
+// カスタムフックの作成
+function useOfflineAIResponse(prompt) {
+  const { data, error, isLoading } = useSWR(
+    prompt ? ['aiResponse', prompt] : null,
+    ([_, promptValue]) => {
+      // オンラインチェック
+      if (!navigator.onLine) {
+        // オフラインモードを通知
+        return { response: 'オフラインモード：キャッシュから表示中', isOffline: true };
+      }
+      return fetchAIResponse(promptValue);
+    },
+    {
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+      dedupingInterval: 60000,
+      onSuccess: (data) => {
+        // 成功時にローカルストレージに保存
+        if (!data.isOffline) {
+          localforage.setItem(`ai-response-${prompt}`, data);
+        }
+      },
+      fallbackData: async () => {
+        // ローカルストレージからのフォールバック
+        try {
+          return await localforage.getItem(`ai-response-${prompt}`);
+        } catch (e) {
+          console.error('Failed to load from cache', e);
+          return null;
+        }
+      }
+    }
+  );
+
+  return { data, error, isLoading, isOffline: data?.isOffline };
+}
+```
+
+#### プログレッシブローディング
+
+ユーザー体験を向上させるため、段階的にデータを表示する方法です。
+
+```tsx title="段階的なデータ表示"
+function AIResponseComponent({ prompt }) {
+  // ストリーミングレスポンスのステート
+  const [partialResponse, setPartialResponse] = useState('');
+
+  // キャッシュからのレスポンス
+  const { data, isLoading } = useQuery({
+    queryKey: ['aiResponse', prompt],
+    queryFn: () => fetchAIResponse(prompt),
+    // キャッシュがある場合はバックグラウンドで更新
+    staleTime: 5 * 60 * 1000,
+  });
+
+  // ストリーミングフェッチ用のエフェクト
+  useEffect(() => {
+    if (!prompt) return;
+
+    let isCancelled = false;
+
+    const fetchStream = async () => {
+      try {
+        const response = await fetch('/api/ai/stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt })
+        });
+
+        const reader = response.body.getReader();
+        let result = '';
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done || isCancelled) break;
+
+          // 新しいチャンクを処理
+          const chunk = new TextDecoder().decode(value);
+          result += chunk;
+          setPartialResponse(result);
+        }
+      } catch (error) {
+        console.error('Streaming error:', error);
+      }
+    };
+
+    // キャッシュがない場合のみストリーミング開始
+    if (isLoading) {
+      fetchStream();
+    }
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [prompt, isLoading]);
+
+  // キャッシュデータまたはストリーミングデータを表示
+  return (
+    <div>
+      {data ? data.response : partialResponse || 'AI処理中...'}
+    </div>
+  );
+}
+```
+
+### 🧪 パフォーマンス測定とキャッシュ最適化
+
+AIレスポンスキャッシングの効果を測定し、最適化するための方法です。
+
+#### パフォーマンスメトリクスの収集
+
+```tsx title="React Query でのパフォーマンスモニタリング"
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+
+function useAIResponseWithMetrics(prompt) {
+  const startTime = performance.now();
+  const queryClient = useQueryClient();
+
+  const result = useQuery({
+    queryKey: ['aiResponse', prompt],
+    queryFn: async () => {
+      const fetchStartTime = performance.now();
+      const response = await fetchAIResponse(prompt);
+      const fetchEndTime = performance.now();
+
+      // メトリクスの記録
+      const metrics = {
+        fetchTime: fetchEndTime - fetchStartTime,
+        cacheHit: false,
+        promptLength: prompt.length,
+        responseLength: response.response.length,
+        timestamp: new Date().toISOString()
+      };
+
+      // メトリクスを保存
+      const prevMetrics = queryClient.getQueryData(['aiMetrics']) || [];
+      queryClient.setQueryData(['aiMetrics'], [...prevMetrics, metrics]);
+
+      return response;
+    },
+    onSuccess: () => {
+      const endTime = performance.now();
+      console.log(`Total query time: ${endTime - startTime}ms`);
+    }
+  });
+
+  // キャッシュヒットの場合のメトリクス
+  if (result.data && !result.isLoading && !result.isFetching) {
+    const isCacheHit = performance.now() - startTime < 10; // 10ms以内に取得できたらキャッシュヒット
+
+    if (isCacheHit) {
+      const prevMetrics = queryClient.getQueryData(['aiMetrics']) || [];
+      const metrics = {
+        fetchTime: 0,
+        cacheHit: true,
+        promptLength: prompt.length,
+        responseLength: result.data.response.length,
+        timestamp: new Date().toISOString()
+      };
+      queryClient.setQueryData(['aiMetrics'], [...prevMetrics, metrics]);
+    }
+  }
+
+  return result;
+}
+```
+
+#### キャッシュヒット率の最適化
+
+キャッシュヒット率を向上させるための戦略を紹介します。
+
+- **プロンプトのノーマライズ**: 小さな違いでもキャッシュが機能するよう正規化
+- **プロアクティブキャッシング**: よく使われるプロンプトを事前にキャッシュ
+- **類似プロンプト検出**: 意味的に近いプロンプトを同じキャッシュにマッピング
+
+```tsx title="プロンプトの正規化関数"
+function normalizePrompt(prompt) {
+  return prompt
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/[?.!,;:]/g, '');
+}
+
+// よく使われるプロンプトのプリキャッシュ
+async function precacheCommonPrompts(queryClient) {
+  const commonPrompts = [
+    'AIとは何ですか',
+    'Reactの利点を教えてください',
+    'JavaScriptとTypeScriptの違い'
+  ];
+
+  for (const prompt of commonPrompts) {
+    await queryClient.prefetchQuery({
+      queryKey: ['aiResponse', normalizePrompt(prompt)],
+      queryFn: () => fetchAIResponse(prompt)
+    });
+  }
+}
+```
+
+### 📝 まとめ
+
+AIレスポンスのキャッシングは、アプリケーションのパフォーマンス向上、コスト削減、ユーザー体験改善に不可欠です。本ドキュメントでは、React アプリケーションにおける3つの主要なキャッシングライブラリ（SWR、React Query、RTK Query）の実装方法と応用パターンを紹介しました。
+
+適切なキャッシング戦略を選択する際は、以下の点を考慮してください。
+
+1. **プロジェクトの要件**: 既存技術スタックとの統合性
+2. **パフォーマンス要件**: レスポンス時間と更新頻度のバランス
+3. **コスト制約**: AI API呼び出し削減のための最適なキャッシュ設定
+4. **セキュリティ要件**: 機密データの適切な取り扱い
+
+どのライブラリを選択する場合も、キャッシュキーの設計、有効期限戦略、エラーハンドリングの実装が成功の鍵となります。
+
+### 用語解説
+
+| 用語 | 説明 |
+|------|------|
+| **SWR** | "Stale-While-Revalidate"の略。古いデータを表示しながらバックグラウンドで再検証するキャッシュ戦略 |
+| **React Query** | TanStackが開発するReactアプリケーション向けデータフェッチング・キャッシングライブラリ |
+| **RTK Query** | Redux Toolkitの一部として提供されるデータフェッチング・キャッシングライブラリ |
+| **staleTime** | データが「古い」と見なされるまでの時間。この間はデータの再取得が行われない |
+| **cacheTime** | 未使用のデータがキャッシュから削除されるまでの時間 |
+| **revalidation** | キャッシュされたデータが古くなった場合に、最新データを取得して更新するプロセス |
+| **キャッシュキー** | キャッシュされたデータを識別するためのユニークな識別子 |
+| **デデューピング** | 一定期間内の同一リクエストを一つにまとめる処理 |
+| **オプティミスティックUI** | サーバーレスポンスを待たずに、予測されるUIの更新を先に表示する技法 |
+| **TTL** | "Time To Live"の略。データが有効である期間 |
