@@ -1,0 +1,413 @@
+---
+title: コンテキスト管理
+description: Managing Context
+icon: ReceiptText
+---
+
+import { Mermaid } from "@/components/mdx/mermaid";
+
+## スマートに状態を管理する：効果的なコンテキスト管理の実践ガイド
+
+### 🔑 エグゼクティブサマリー
+
+本ドキュメントでは、Web アプリケーションや AI を活用したシステムにおけるコンテキスト管理の重要性と実装手法を解説します。ユーザーセッション内での状態と履歴を効率的に保持することで、パーソナライズされた体験を提供し、AI モデルのパフォーマンスを最適化できます。特に生成 AI システムにおいては、適切なコンテキスト管理によりトークン使用量の削減、レスポンスの質の向上、そしてユーザー体験の一貫性維持が可能になります。
+
+### 想定読者と対象システム
+
+- **想定読者**: フロントエンドエンジニア、バックエンドエンジニア、AI エンジニア、プロダクトマネージャー
+- **対象システム規模**: 小規模〜大規模の Web アプリケーション、SaaS プロダクト、AI 搭載システム
+- **前提知識**: JavaScript/TypeScript の基本、Web アプリケーション開発の基礎知識
+
+### 🧠 コンテキスト管理の基本概念
+
+コンテキスト管理とは、ユーザーとシステムのインタラクションに関する情報を保持し、後続の処理に活用するための仕組みです。特に生成 AI システムにおいては、過去の会話履歴や状態をトラッキングすることで、一貫性のある高品質な応答を生成できます。
+
+コンテキスト管理において考慮すべき主要な要素は以下の通りです。
+
+- ユーザーの入力履歴
+- システムの応答履歴
+- セッション状態
+- ユーザープロファイル情報
+- 環境コンテキスト（デバイス情報、ロケールなど）
+- ビジネスルールとアクセス権限
+
+<Mermaid chart={`
+graph TD
+    A[コンテキスト管理] --> B[短期コンテキスト<br>単一セッション内]
+    A --> C[長期コンテキスト<br>セッション間]
+    B --> D[会話履歴]
+    B --> E[現在の状態]
+    B --> F[一時的なユーザー情報]
+    C --> G[ユーザープロファイル]
+    C --> H[学習した嗜好]
+    C --> I[利用パターン]
+
+    style A fill:#4B89DC,stroke:#2E5A9C,color:#FFF
+    style B fill:#48CFAD,stroke:#36BC9B,color:#000
+    style C fill:#FFCE54,stroke:#F6BB42,color:#000
+    style D fill:#A0D468,stroke:#8CC152,color:#000
+    style E fill:#A0D468,stroke:#8CC152,color:#000
+    style F fill:#A0D468,stroke:#8CC152,color:#000
+    style G fill:#FC6E51,stroke:#E9573F,color:#FFF
+    style H fill:#FC6E51,stroke:#E9573F,color:#FFF
+    style I fill:#FC6E51,stroke:#E9573F,color:#FFF
+`} />
+
+*図1: コンテキスト管理の基本構造*
+
+### 🛡️ コンテキスト管理の実装アプローチ
+
+効果的なコンテキスト管理を実現するためのアプローチは複数存在します。システムの要件や規模に応じて適切な方法を選択することが重要です。
+
+#### クライアントサイドのコンテキスト管理
+
+フロントエンドでのコンテキスト管理手法は、ユーザーの即時応答性を高めるのに効果的です。主な実装方法は以下の通りです。
+
+- **ブラウザストレージの活用**
+  - `localStorage`: セッション間で永続化が必要なデータ
+  - `sessionStorage`: 単一セッション内でのみ必要なデータ
+  - `IndexedDB`: 大量のデータや構造化データの保存
+
+- **状態管理ライブラリの活用**
+  - Redux/Redux Toolkit: 予測可能な状態管理
+  - Zustand: シンプルで軽量な状態管理
+  - React Context: コンポーネント間でのコンテキスト共有
+  - Jotai/Recoil: 原子的状態管理
+
+```javascript
+// React Context を使用したコンテキスト管理の例
+const ChatContext = createContext();
+
+function ChatProvider({ children }) {
+  const [messages, setMessages] = useState([]);
+  const [userProfile, setUserProfile] = useState(null);
+
+  // 新しいメッセージを会話履歴に追加
+  const addMessage = (message) => {
+    setMessages(prev => [...prev, message]);
+  };
+
+  return (
+    <ChatContext.Provider value={{ messages, addMessage, userProfile, setUserProfile }}>
+      {children}
+    </ChatContext.Provider>
+  );
+}
+```
+
+#### サーバーサイドのコンテキスト管理
+
+バックエンドでのコンテキスト管理は、セキュリティの向上や複数デバイス間での一貫性を実現します。主な実装方法は以下の通りです。
+
+- **セッションストレージ**
+  - Redis: 高速なインメモリデータストア
+  - Memcached: 分散メモリキャッシングシステム
+
+- **データベースを活用した永続化**
+  - リレーショナルデータベース (PostgreSQL, MySQL)
+  - ドキュメントデータベース (MongoDB, Firestore)
+  - ベクトルデータベース (Pinecone, Chroma): 埋め込みベクトルの保存
+
+- **サーバーサイドセッション管理**
+  - Express-session
+  - Next.js API ルートでのセッション管理
+  - サーバーレス関数での状態管理
+
+<Mermaid chart={`
+sequenceDiagram
+    participant User
+    participant Client
+    participant API
+    participant AuthService
+    participant ContextManager
+    participant Database
+
+    User->>Client: 操作を実行
+    Client->>API: リクエスト送信 (with SessionID)
+    API->>AuthService: セッション検証
+    AuthService->>ContextManager: ユーザーコンテキスト取得
+    ContextManager->>Database: 履歴・状態取得
+    Database-->>ContextManager: コンテキストデータ
+    ContextManager-->>API: 拡張されたコンテキスト
+    API->>API: ビジネスロジック実行
+    API-->>Client: コンテキスト認識済みのレスポンス
+    Client-->>User: 結果表示
+    API->>ContextManager: 更新されたコンテキスト保存
+    ContextManager->>Database: コンテキスト永続化
+`} />
+
+*図2: コンテキスト管理のシーケンス図*
+
+### 🔧 生成 AI システムにおけるコンテキスト管理
+
+生成 AI システムにおけるコンテキスト管理は、特に会話履歴の取り扱いと効率的なトークン使用の観点で重要です。主なポイントは以下の通りです。
+
+#### 会話履歴の管理
+
+生成 AI モデルに送信するコンテキストは、トークン制限とパフォーマンスを考慮して最適化する必要があります。
+
+- **会話履歴の構造化**
+  - 役割ベースのフォーマット (user/assistant)
+  - メタデータの付与 (タイムスタンプ、感情、意図など)
+  - 構造化された JSON/XML 形式
+
+- **コンテキストウィンドウの最適化**
+  - 固定サイズウィンドウ: 最新 N 件のメッセージのみを保持
+  - 要約ベースアプローチ: 古い会話を要約して含める
+  - 重要度ベースのフィルタリング: 重要なメッセージのみを選択
+
+```javascript
+// 会話履歴を管理するユーティリティクラスの例
+class ConversationManager {
+  constructor(maxTokens = 4000) {
+    this.history = [];
+    this.maxTokens = maxTokens;
+    this.currentTokenCount = 0;
+  }
+
+  addMessage(role, content) {
+    const tokens = this.estimateTokens(content);
+
+    // トークン制限を超える場合、古いメッセージを削除または要約
+    while (this.currentTokenCount + tokens > this.maxTokens && this.history.length > 0) {
+      const oldestMessage = this.history.shift();
+      this.currentTokenCount -= this.estimateTokens(oldestMessage.content);
+    }
+
+    this.history.push({ role, content, timestamp: new Date() });
+    this.currentTokenCount += tokens;
+
+    return this.history;
+  }
+
+  // トークン数の推定（簡易版）
+  estimateTokens(text) {
+    return Math.ceil(text.length / 4);
+  }
+
+  // AI モデル用のフォーマットに変換
+  getFormattedHistory() {
+    return this.history.map(msg => ({
+      role: msg.role,
+      content: msg.content
+    }));
+  }
+}
+```
+
+#### 高度なコンテキスト管理テクニック
+
+より複雑なシステムでは、以下のテクニックを活用することでコンテキスト管理を強化できます。
+
+- **セマンティック検索を活用したコンテキスト拡張**
+  - 関連性の高い過去の会話を動的に取得
+  - ドキュメントやナレッジベースからの情報の取得
+
+- **マルチレベルコンテキスト**
+  - システムレベルのコンテキスト: アプリケーション全体の状態
+  - セッションレベルのコンテキスト: 現在の対話に関する情報
+  - メッセージレベルのコンテキスト: 個々のメッセージに関連する情報
+
+- **コンテキスト圧縮と要約**
+  - AI による会話履歴の自動要約
+  - 重要ポイントの抽出と冗長情報の削除
+  - 階層的コンテキスト構造の構築
+
+<Mermaid chart={`
+graph TD
+    A[入力メッセージ] --> B{コンテキスト<br>サイズ確認}
+    B -->|制限内| C[既存コンテキストに追加]
+    B -->|制限超過| D[コンテキスト圧縮戦略]
+    D --> E[古いメッセージの要約]
+    D --> F[重要度によるフィルタリング]
+    D --> G[セマンティック検索による<br>関連メッセージのみ保持]
+    E --> H[圧縮されたコンテキスト]
+    F --> H
+    G --> H
+    H --> I[AIモデルへの送信]
+    C --> I
+    I --> J[応答生成]
+    J --> K[新しい応答をコンテキストに追加]
+    K --> L[コンテキスト永続化]
+
+    style A fill:#4FC1E9,stroke:#3BAFDA,color:#000
+    style B fill:#FFCE54,stroke:#F6BB42,color:#000
+    style C fill:#A0D468,stroke:#8CC152,color:#000
+    style D fill:#FC6E51,stroke:#E9573F,color:#FFF
+    style E fill:#AC92EC,stroke:#967ADC,color:#FFF
+    style F fill:#AC92EC,stroke:#967ADC,color:#FFF
+    style G fill:#AC92EC,stroke:#967ADC,color:#FFF
+    style H fill:#A0D468,stroke:#8CC152,color:#000
+    style I fill:#4FC1E9,stroke:#3BAFDA,color:#000
+    style J fill:#48CFAD,stroke:#36BC9B,color:#000
+    style K fill:#5D9CEC,stroke:#4A89DC,color:#FFF
+    style L fill:#656D78,stroke:#434A54,color:#FFF
+`} />
+
+*図3: 生成 AI システムのコンテキスト最適化フロー*
+
+### 📊 コンテキスト管理のパフォーマンス最適化
+
+効率的なコンテキスト管理は、システム全体のパフォーマンスに大きく影響します。最適化のポイントは以下の通りです。
+
+#### トークン使用の最適化
+
+- **プロンプトの効率化**
+  - 簡潔で明確なプロンプト設計
+  - システムプロンプトの再利用
+  - 動的プロンプト生成の最適化
+
+- **選択的コンテキスト取得**
+  - ユースケースに応じた必要最小限のコンテキスト取得
+  - 階層的コンテキスト（概要レベルと詳細レベル）
+
+#### メモリとストレージの最適化
+
+- **キャッシング戦略**
+  - 頻繁にアクセスされるコンテキストのインメモリキャッシング
+  - 階層的キャッシング（L1/L2キャッシュ設計）
+
+- **圧縮技術の活用**
+  - テキストデータの圧縮アルゴリズム
+  - バイナリフォーマットの活用
+
+- **読み書きパターンの最適化**
+  - 書き込み頻度の高いデータと読み取り頻度の高いデータの分離
+  - ライトビハインドキャッシュの活用
+
+### 🔐 コンテキスト管理におけるセキュリティとプライバシー
+
+コンテキストデータには機密情報が含まれる可能性があるため、適切なセキュリティ対策が不可欠です。
+
+- **データ保護**
+  - 転送中および保存時の暗号化
+  - 機密情報のマスキングとフィルタリング
+  - アクセス制御と最小権限の原則
+
+- **コンプライアンス対応**
+  - GDPR/CCPA などの規制への対応
+  - データ保持ポリシーの実装
+  - ユーザーデータ削除リクエスト対応
+
+- **プライバシーバイデザイン**
+  - データ最小化原則の適用
+  - 匿名化と仮名化
+  - 目的に応じたコンテキスト分離
+
+```javascript
+// 機密情報をフィルタリングするユーティリティ関数の例
+function sanitizeContext(context) {
+  const sensitivePatterns = [
+    /\b\d{4}[- ]?\d{4}[- ]?\d{4}[- ]?\d{4}\b/g, // クレジットカード番号
+    /\b\d{3}-\d{2}-\d{4}\b/g, // 米国SSN
+    /password\s*[:=]\s*\S+/gi, // パスワード
+  ];
+
+  let sanitizedContext = { ...context };
+
+  // オブジェクト内の全文字列フィールドをチェック
+  const sanitizeObj = (obj) => {
+    Object.keys(obj).forEach(key => {
+      if (typeof obj[key] === 'string') {
+        sensitivePatterns.forEach(pattern => {
+          obj[key] = obj[key].replace(pattern, '[REDACTED]');
+        });
+      } else if (typeof obj[key] === 'object' && obj[key] !== null) {
+        sanitizeObj(obj[key]);
+      }
+    });
+  };
+
+  sanitizeObj(sanitizedContext);
+  return sanitizedContext;
+}
+```
+
+### 🚀 実装戦略とベストプラクティス
+
+コンテキスト管理を効果的に実装するためのベストプラクティスは以下の通りです。
+
+- **段階的実装アプローチ**
+  - 基本的なセッション管理から開始
+  - ユーザーの振る舞いに基づく拡張
+  - フィードバックループに基づく継続的改善
+
+- **アーキテクチャパターン**
+  - コンテキストマネージャーの分離
+  - レイヤー化されたコンテキスト設計
+  - イベント駆動型コンテキスト更新
+
+- **監視と分析**
+  - コンテキストサイズと使用量の監視
+  - パフォーマンスメトリクスの追跡
+  - コンテキスト品質の評価
+
+<Mermaid chart={`
+graph LR
+    A[設計フェーズ] --> B[基本実装]
+    B --> C[テストと評価]
+    C --> D[最適化]
+    D --> E[拡張機能]
+    E --> F[監視と維持]
+    F -->|継続的改善| C
+
+    A1[要件分析] --> A
+    A2[ユースケース定義] --> A
+    A3[データモデリング] --> A
+
+    B1[コアコンテキスト] --> B
+    B2[状態管理] --> B
+    B3[永続化層] --> B
+
+    C1[機能テスト] --> C
+    C2[パフォーマンス評価] --> C
+    C3[ユーザーテスト] --> C
+
+    D1[トークン最適化] --> D
+    D2[キャッシング] --> D
+    D3[圧縮戦略] --> D
+
+    E1[高度な検索] --> E
+    E2[分析機能] --> E
+    E3[インテグレーション] --> E
+
+    F1[メトリクス収集] --> F
+    F2[アラート設定] --> F
+    F3[更新プロセス] --> F
+
+    style A fill:#4FC1E9,stroke:#3BAFDA,color:#000
+    style B fill:#A0D468,stroke:#8CC152,color:#000
+    style C fill:#FFCE54,stroke:#F6BB42,color:#000
+    style D fill:#AC92EC,stroke:#967ADC,color:#FFF
+    style E fill:#FC6E51,stroke:#E9573F,color:#FFF
+    style F fill:#48CFAD,stroke:#36BC9B,color:#000
+`} />
+
+*図4: コンテキスト管理実装のライフサイクル*
+
+---
+
+### まとめ
+
+効果的なコンテキスト管理は、生成 AI を活用したシステムにおいて不可欠な要素です。適切に設計・実装されたコンテキスト管理により、以下のメリットが得られます。
+
+- パーソナライズされたユーザー体験の提供
+- AI モデルのトークン使用量の最適化
+- 一貫性のある高品質な応答生成
+- セキュリティとプライバシーの確保
+- スケーラブルなシステム設計
+
+本ドキュメントで紹介した手法とパターンを活用し、システムの要件に合わせたコンテキスト管理戦略を構築することで、効率的かつ効果的な生成 AI システムを実現できます。
+
+### 用語解説
+
+| 用語 | 説明 |
+|------|------|
+| コンテキスト | ユーザーとシステムのインタラクションに関する情報や状態の総体 |
+| コンテキストウィンドウ | AI モデルに送信する会話履歴の範囲 |
+| トークン | 生成 AI モデルが処理する最小単位の文字列 |
+| 埋め込みベクトル | テキストや画像などのデータを数値ベクトルに変換したもの |
+| プロンプト | AI モデルに対する指示や入力となるテキスト |
+| セッション | ユーザーがアプリケーションを利用している一連の期間 |
+| コンテキスト圧縮 | コンテキストデータのサイズを削減するための処理 |
+| セマンティック検索 | 意味的な類似性に基づいて情報を検索する技術 |
